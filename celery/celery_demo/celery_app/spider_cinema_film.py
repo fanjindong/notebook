@@ -200,10 +200,24 @@ def cinema_id_get_film_information(self, cinema_id, range_date):
             film_id = item['filmId']
             datas.setdefault(film_id, [])
             datas[film_id].append(item)
+    today = time.strftime("%Y-%m-%d", time.localtime())
     for key, value in datas.items():
         self.loc['dianying_film_zzw'].update_one(
             {'filmId': key, 'cinemaId': cinema_id},
-            {'$set': {'plans': value}},
+            {'$set': {'plans': value, 'updatedAt': today}},
             upsert=True
         )
     return ['cinema_id:', cinema_id, 'is ok']
+
+
+@app.task(base=ZhizhuwangTask, bind=True, ignore_result=True, max_retries=3)
+def datas_cleanse(self):
+    today = time.strftime("%Y-%m-%d", time.localtime())
+    delete_count = 0
+    delete_count += self.loc['dianying_film_zzw'].find(
+        {"updatedAt": None}).count()
+    delete_count += self.loc['dianying_film_zzw'].find(
+        {"updatedAt": {"$lt": today}}).count()
+    self.loc['dianying_film_zzw'].delete_many({"updatedAt": None})
+    self.loc['dianying_film_zzw'].delete_many({"updatedAt": {"$lt": today}})
+    return ['delete count is', delete_count]
