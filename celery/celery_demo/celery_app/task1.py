@@ -344,7 +344,6 @@ def hotel_ids_message_fetch(hotel_ids):
         hotel_index += hotel_desc.replace('index', str(i))
     hotel_desc = hotel_index.format(hotel_ids)
     request_xml = request_xml.format(AID, SID, ts, sign, hotel_desc)
-    # pprint(request_xml)
     encode_xml = request_xml.encode('utf-8')
 
     headers = {'Content-Type': 'text/xml; charset=utf-8',
