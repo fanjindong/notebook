@@ -32,10 +32,10 @@ def normal_datas_fetch(yesterday):
     return normal_datas
 
 
-def coupon_datas_fetch(activity_id, yesterday):
-    """获取activityId对应的副(coupon)红包活动数据(默认昨日)"""
+def coupon_datas_fetch(activity_id, start, end):
+    """获取activityId对应的副(coupon)红包活动数据(start-endtime)"""
     coupon_datas = []
-    for coupon_data in ree.dev['activity'].find({"activityId": activity_id, "target": "coupon", "date": yesterday}):
+    for coupon_data in ree.dev['activity'].find({"activityId": activity_id, "target": "coupon", "date": {"$gte": start, "$lte": end}}):
 
         if coupon_data['giveType'] == 1.0:
             coupon_data['giveType'] = '固定投放'
@@ -82,8 +82,8 @@ def normal_datas_to_excel(normal_data, coupon_datas):
                '未领取', normal_data['undistributed']])
     ws.append(['已使用', normal_data['used'], '未使用', normal_data[
               'distributed'] - normal_data['used']])
-    ws.append(['今天领取', normal_data['distributedToday'],
-               '今日使用', normal_data['usedToday']])
+    ws.append(['领取', normal_data['distributedToday'],
+               '使用', normal_data['usedToday']])
 
     coupon_datas_to_excel(ws, coupon_datas)
 
@@ -133,13 +133,20 @@ def coupon_datas_to_excel(ws, coupon_datas):
             ws.cell(row=index, column=col).value = coupon_data[
                 eng_chi_dict[ws.cell(row=15, column=col).value]
             ]
+    ws['B9'].value "=SUM(I16:I17)"
+    ws['D9'].value "=SUM(J16:J17)"
 
-if __name__ == "__main__":
-    today = datetime.date.today()
-    yesterday = today - datetime.timedelta(days=1)
 
-    normal_datas = normal_datas_fetch(str(yesterday))
+def red_envelopes(start, end):
+
+    normal_datas = normal_datas_fetch(str(end))
+
     for normal_data in normal_datas:
         activity_id = normal_data['activityId']
-        coupon_datas = coupon_datas_fetch(activity_id, str(yesterday))
+        coupon_datas = coupon_datas_fetch(activity_id, str(start), str(end))
         normal_datas_to_excel(normal_data, coupon_datas)
+
+if __name__ == "__main__":
+    # today = datetime.date.today()
+    # yesterday = today - datetime.timedelta(days=1)
+    red_envelopes(start='2017-01-01', end='2017-03-08')
