@@ -52,8 +52,8 @@ def coupon_datas_fetch(activity_id, start, end):
 def normal_datas_to_excel(normal_data, coupon_datas, start, end):
     wb = Workbook()
     ws = wb.active
-    ws.title = "优惠活动报表"
-    ws.append(["红包活动报告"] * 4)
+    ws.title = "优惠活动报告 每月汇总明细"
+    ws.append(["红包活动报告-【{}】".format(normal_data['activityName'])] * 4)
     ws.append([''])
     ws.merge_cells("A1:D2")
     for row in range(1, ws.max_row + 1):
@@ -66,36 +66,31 @@ def normal_datas_to_excel(normal_data, coupon_datas, start, end):
             ws.cell(row=row, column=col).alignment = Alignment(
                 horizontal="center", vertical="center")
     ws.append([''] * 4)
-    ws.append([''] * 4)
-    ws.append(['日期', start + ' - ' + end])
-    ws.merge_cells("B5:D5")
+    ws.append(['', '活动总览', '导出数据'])
+    ws.append(['起止日期', '', start + ' - ' + end])
+    ws.append(['总数', normal_data['total'], normal_data['total']])
+    ws.append(['已领取', normal_data['distributed'], ''])
+    ws.append(['未领取', normal_data['undistributed'], ''])
+    ws.append(['已使用', normal_data['used'], ''])
+    ws.append(['未使用', normal_data['distributed'] - normal_data['used'], ''])
+    ws.append(['活动总金额', '', ''])
+    ws.append(['已使用金额', '', ''])
 
-    ws.append(['活动名', normal_data['activityName']])
-    ws.merge_cells("B6:D6")
-
-    for row in range(5, 7):
-        for col in range(2, 5):
-            ws.cell(row=row, column=col).alignment = Alignment(
-                horizontal="center", vertical="center")
-
-    ws.append(['已领取', normal_data['distributed'],
-               '未领取', normal_data['undistributed']])
-    ws.append(['已使用', normal_data['used'], '未使用', normal_data[
-              'distributed'] - normal_data['used']])
-    ws.append(['领取', normal_data['distributedToday'],
-               '使用', normal_data['usedToday']])
+    for row in range(4, 13):
+        ws['B{}'.format(row)].fill = PatternFill("solid", fgColor="ffe699")
+        ws['C{}'.format(row)].fill = PatternFill("solid", fgColor="bdd7ee")
 
     coupon_datas_to_excel(ws, coupon_datas)
 
     left, right, top, bottom = [Side(style='thin', color='000000')] * 4
-    for row in range(5, 10):
-        for col in range(1, 5):
+    for row in range(4, 13):
+        for col in range(1, 4):
             ws.cell(row=row, column=col).font = Font(name='DengXian')
             ws.cell(row=row, column=col).border = Border(
                 left=left, right=right, top=top, bottom=bottom)
-    for row in range(15, ws.max_row + 1):
+    for row in range(18, ws.max_row + 1):
         for col in range(1, ws.max_column + 1):
-            ws.cell(row=15, column=col).fill = PatternFill(
+            ws.cell(row=18, column=col).fill = PatternFill(
                 "solid", fgColor="deebf7")
             ws.cell(row=row, column=col).font = Font(name='DengXian')
             ws.cell(row=row, column=col).border = Border(
@@ -108,33 +103,36 @@ def normal_datas_to_excel(normal_data, coupon_datas, start, end):
 
 
 def coupon_datas_to_excel(ws, coupon_datas):
-    for row in range(10, 14):
+    for row in range(13, 17):
         ws.append([''])
     ws.append(['优惠券明细'] * 2)
-    ws.merge_cells("A14:B14")
+    ws.merge_cells("A17:B17")
     left, right, top, bottom = [Side(style='thin', color='000000')] * 4
     for col in range(1, 3):
-        ws.cell(row=14, column=col).alignment = Alignment(
+        ws.cell(row=17, column=col).alignment = Alignment(
             horizontal="center", vertical="center")
-        ws.cell(row=14, column=col).fill = PatternFill(
+        ws.cell(row=17, column=col).fill = PatternFill(
             patternType="solid", fgColor="9dc3e6")
-        ws.cell(row=14, column=col).border = Border(
+        ws.cell(row=17, column=col).border = Border(
             left=left, right=right, top=top, bottom=bottom)
-        ws.cell(row=14, column=col).font = Font(name='DengXian', size=14)
+        ws.cell(row=17, column=col).font = Font(name='DengXian', size=17)
     eng_chi_dict = {'日期': 'date', '策略方式': 'giveType', '红包': 'couponName',
                     '红包总数': 'total', '已领取': 'distributed', '未领取': 'undistributed',
                     '已使用': 'used', '未使用': 'unused', '今日领取': 'distributedToday',
-                    '今日使用': 'usedToday'}
+                    '今日使用': 'usedToday', '补贴金额': ''}
     sublist = ['日期', '策略方式', '红包', '红包总数', '已领取',
-               '未领取', '已使用', '未使用', '今日领取', '今日使用']
+               '未领取', '已使用', '未使用', '今日领取', '今日使用', '补贴金额']
     ws.append(sublist)
-    for index, coupon_data in enumerate(coupon_datas, 16):
+    for index, coupon_data in enumerate(coupon_datas, 19):
         for col in range(1, len(eng_chi_dict) + 1):
-            ws.cell(row=index, column=col).value = coupon_data[
-                eng_chi_dict[ws.cell(row=15, column=col).value]
-            ]
-    ws['B9'].value = "=SUM(I16:I{})".format(ws.max_row)
-    ws['D9'].value = "=SUM(J16:J{})".format(ws.max_row)
+            ws.cell(row=index, column=col).value = coupon_data.get(
+                eng_chi_dict[ws.cell(row=18, column=col).value]
+            )
+    ws['C7'].value = "=SUM(I19:I{})".format(ws.max_row)
+    ws['C8'].value = "=B8"
+    ws['C9'].value = "=SUM(J19:J{})".format(ws.max_row)
+    ws['C10'].value = "=C7-C9"
+    ws['C12'].value = "=SUM(K19:K{})".format(ws.max_row)
 
 
 def red_envelopes(start, end):
@@ -149,4 +147,4 @@ def red_envelopes(start, end):
 if __name__ == "__main__":
     # today = datetime.date.today()
     # yesterday = today - datetime.timedelta(days=1)
-    red_envelopes(start='2017-02-01', end='2017-03-08')
+    red_envelopes(start='2017-03-01', end='2017-03-13')
