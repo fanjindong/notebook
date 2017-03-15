@@ -31,20 +31,25 @@ class Transaction(object):
     @property
     def rdb_1(self):
         if self._rdb1 is None:
-            self._rdb1 = redis.StrictRedis(host='192.168.1.11',
-                                           port='6379',
-                                           db=1, charset="utf-8",
-                                           decode_responses=True)
+            self._rdb1 = redis.StrictRedis(
+                host='192.168.1.11',
+                port='6379',
+                db=1,
+                charset="utf-8",
+                decode_responses=True)
         return self._rdb1
 
     @property
     def rdb_2(self):
         if self._rdb2 is None:
-            self._rdb2 = redis.StrictRedis(host='192.168.1.11',
-                                           port='6379',
-                                           db=2, charset="utf-8",
-                                           decode_responses=True)
+            self._rdb2 = redis.StrictRedis(
+                host='192.168.1.11',
+                port='6379',
+                db=2,
+                charset="utf-8",
+                decode_responses=True)
         return self._rdb2
+
 
 b = Transaction()
 
@@ -54,8 +59,8 @@ def parameter_verification(appcode, start, end):
     try:
         start = start.split('-')
         end = end.split('-')
-        starttime = time.mktime(
-            (int(start[0]), int(start[1]), int(start[2]), 0, 0, 0, 0, 0, 0)) * 1000
+        starttime = time.mktime((int(start[0]), int(start[1]), int(start[2]),
+                                 0, 0, 0, 0, 0, 0)) * 1000
         endtime = time.mktime(
             (int(end[0]), int(end[1]), int(end[2]), 24, 0, 0, 0, 0, 0)) * 1000
     except ValueError as e:
@@ -65,8 +70,16 @@ def parameter_verification(appcode, start, end):
     if endtime > time.time() * 1000:
         return [0, '结束时间超出检索范围（本日数据未存储，最大日期为今日的前一天）']
     # 判断时间参数
-    find_one = b.mdb['order_lite_list'].find_one({'appCode': appcode, 'status': {
-                                                 '$in': [4, 7]}, 'createdAt': {'$gte': starttime, '$lt': endtime}})
+    find_one = b.mdb['order_lite_list'].find_one({
+        'appCode': appcode,
+        'status': {
+            '$in': [4, 7]
+        },
+        'createdAt': {
+            '$gte': starttime,
+            '$lt': endtime
+        }
+    })
     if not find_one:
         print('order_name输入错误，无此字段或查无数据')
         return [0, 'order_name Error']
@@ -78,13 +91,22 @@ def mongodb_datas_fetch(appcode, starttime, endtime, datas=None):
     if datas is None:
         datas = []
     # 查询mongo数据库
-    items = b.mdb['order_lite_list'].find({'appCode': appcode, 'status': {
-                                          '$in': [4, 7]}, 'createdAt': {'$gte': starttime, '$lt': endtime}}, {'_id': 0})
+    items = b.mdb['order_lite_list'].find({
+        'appCode': appcode,
+        'status': {
+            '$in': [4, 7]
+        },
+        'createdAt': {
+            '$gte': starttime,
+            '$lt': endtime
+        }
+    }, {'_id': 0})
     for item in items:
         order_type = item['orderType']
         order_id = item['id']
-        order_detail = b.mdb['order_{}'.format(
-            order_type)].find_one({'id': order_id})
+        order_detail = b.mdb['order_{}'.format(order_type)].find_one({
+            'id': order_id
+        })
 
         order_channel = item['channel']
         order_phone = order_detail.get('phone')
@@ -92,8 +114,7 @@ def mongodb_datas_fetch(appcode, starttime, endtime, datas=None):
         order_name = item['name']
         partner_id = order_detail['partnerId']
         # partner_id = item.get('partnerId', '')
-        xdtime = str(datetime.fromtimestamp(
-            item['createdAt'] / 1000)).split('.')[0]
+        xdtime = str(datetime.fromtimestamp(item['createdAt'] / 1000)).split('.')[0]  # yapf: disable
         order_status = item['displayStatus']
         number_status = item['status']
 
@@ -119,10 +140,10 @@ def redis_datas_fetch(datas, report_datas=None):
         report_datas = []
     for item in datas:
         # redis 数据库获取缺失订单价格数据字段，1为完成订单，2为退款订单
-        rdb_1_datas = b.rdb_1.hgetall(
-            'p:{0}:{1}'.format(item['appcode'], item['order_id']))
-        rdb_2_datas = b.rdb_2.hgetall(
-            'r:{0}:{1}'.format(item['appcode'], item['order_id']))
+        rdb_1_datas = b.rdb_1.hgetall('p:{0}:{1}'.format(item['appcode'], item[
+            'order_id']))
+        rdb_2_datas = b.rdb_2.hgetall('r:{0}:{1}'.format(item['appcode'], item[
+            'order_id']))
 
         number_status = item['number_status']
         if number_status == 4:
@@ -134,8 +155,10 @@ def redis_datas_fetch(datas, report_datas=None):
 
             zftime = ''
             if rdb_1_datas.get('createdat'):
-                zftime = str(datetime.fromtimestamp(
-                    float(rdb_1_datas.get('createdat')) / 1000)).split('.')[0]
+                zftime = str(
+                    datetime.fromtimestamp(
+                        float(rdb_1_datas.get('createdat')) / 1000)).split(
+                            '.')[0]
 
             payprice = ''
             if rdb_1_datas.get('payprice'):
@@ -150,8 +173,10 @@ def redis_datas_fetch(datas, report_datas=None):
 
             zftime = ''
             if rdb_2_datas.get('createdat'):
-                zftime = str(datetime.fromtimestamp(
-                    float(rdb_2_datas.get('createdat')) / 1000)).split('.')[0]
+                zftime = str(
+                    datetime.fromtimestamp(
+                        float(rdb_2_datas.get('createdat')) / 1000)).split(
+                            '.')[0]
 
             payprice = ''
             if rdb_2_datas.get('paidprice'):
@@ -183,13 +208,14 @@ def generate_report(report_datas, field_header):
         item = map_keys(item)
         row = ws.max_row + 1
         for col in range(1, ws.max_column + 1):
-            ws.cell(row=row, column=col).value = item[
-                ws.cell(row=1, column=col).value]
+            ws.cell(
+                row=row, column=col).value = item[ws.cell(
+                    row=1, column=col).value]
 
     render_report(ws)
     # 报表完成，保存为excel文件
-    wb.save("{0}_交易明细报表_{1}.xlsx".format(
-        report_datas[0]['appcode'], len(field_header)))
+    wb.save("{0}_交易明细报表_{1}.xlsx".format(report_datas[0]['appcode'],
+                                         len(field_header)))
     return ['file save is ok']
 
 
@@ -208,8 +234,10 @@ def render_report(ws):
     left, right, top, bottom = [Side(style='thin', color='000000')] * 4
     for row in range(1, ws.max_row + 1):
         for col in range(1, ws.max_column + 1):
-            ws.cell(row=row, column=col).border = Border(
-                left=left, right=right, top=top, bottom=bottom)  # 设置单元格边框格式
+            ws.cell(
+                row=row, column=col).border = Border(
+                    left=left, right=right, top=top,
+                    bottom=bottom)  # 设置单元格边框格式
     for row in range(2, ws.max_row + 1):
         for col in range(1, ws.max_column + 1):
             ws.cell(row=row, column=col).font = Font(name="微软雅黑", size=11)
@@ -291,8 +319,8 @@ def map_values(report_data):
     elif pay_channel:
         report_data['pay_channel'] = map_pay_channel[pay_channel]
 
-    report_data['order_channel'] = map_order_channel[
-        report_data['order_channel'].lower()]
+    report_data['order_channel'] = map_order_channel[report_data[
+        'order_channel'].lower()]
     return report_data
 
 
@@ -315,8 +343,10 @@ def map_keys(report_data):
         'zftime': '支付时间',
         'pay_id': '支付订单号',
     }
-    report_data = {map_key[k]: v for k,
-                   v in report_data.items() if k in map_key}
+    report_data = {
+        map_key[k]: v
+        for k, v in report_data.items() if k in map_key
+    }
     return report_data
 
 
@@ -337,11 +367,14 @@ def report_datas_fetch(appcode, start, end):
 
     report_datas = parameter_verification(appcode, start, end)
 
-    field_header_client = ['订单号', '品类', '供应商', '订单名称', '订单金额', '支付金额',
-                           '优惠金额', '订单状态', '支付方式', '下单时间', '支付时间', '支付订单号']
-    field_header_admin = ['应用名称', '订单号', '品类', '供应商', '供应商订单号', '手机号', '用户ID',
-                          '订单名称', '订单金额', '支付金额', '优惠金额', '订单状态', '支付方式',
-                          '下单时间', '支付时间', '支付订单号']
+    field_header_client = [
+        '订单号', '品类', '供应商', '订单名称', '订单金额', '支付金额', '优惠金额', '订单状态', '支付方式',
+        '下单时间', '支付时间', '支付订单号'
+    ]
+    field_header_admin = [
+        '应用名称', '订单号', '品类', '供应商', '供应商订单号', '手机号', '用户ID', '订单名称', '订单金额',
+        '支付金额', '优惠金额', '订单状态', '支付方式', '下单时间', '支付时间', '支付订单号'
+    ]
 
     generate_report(report_datas, field_header_client)
     generate_report(report_datas, field_header_admin)

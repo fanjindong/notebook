@@ -23,12 +23,11 @@ class Platfromenvelopes():
 ree = Platfromenvelopes()
 
 
-def activity_ids_fetch():
+def activity_ids_fetch(start, end):
     """获取activity_ids"""
     activity_ids = set()
     normal_datas = ree.dev['activity'].find(
-        {"target": "platform"}
-    )
+        {"target": "platform", "date": {"$gte": start, "$lte": end}})
     for normal_data in normal_datas:
         activity_ids.add(normal_data['activityId'])
     return activity_ids
@@ -75,13 +74,13 @@ def normal_datas_to_excel(normal_data, platform_datas, start, end):
                 horizontal="center", vertical="center")
 
     ws.append(['已使用', normal_data['used'],
-               '剩余', normal_data['remaining']])
+               '未使用', normal_data['remaining']])
 
-    ws.append(['使用', normal_data['used']])
-    ws.merge_cells("B8:D8")
-    for col in range(2, 5):
-        ws.cell(row=ws.max_row, column=col).alignment = Alignment(
-            horizontal="center", vertical="center")
+    ws.append(['参与人数', normal_data['usedPeopleNum'], '补贴金额', ''])
+    # ws.merge_cells("B8:D8")
+    # for col in range(2, 5):
+    #     ws.cell(row=ws.max_row, column=col).alignment = Alignment(
+    #         horizontal="center", vertical="center")
 
     platform_datas_to_excel(ws, platform_datas)
 
@@ -119,21 +118,23 @@ def platform_datas_to_excel(ws, platform_datas):
         ws.cell(row=14, column=col).border = Border(
             left=left, right=right, top=top, bottom=bottom)
         ws.cell(row=14, column=col).font = Font(name='DengXian', size=14)
-    eng_chi_dict = {'日期': 'date', '总数量': 'total', '已使用': 'used',
-                    '剩余': 'remaining', '今日使用': 'usedToday'}
-    sublist = ['日期', '总数量', '已使用', '剩余', '今日使用']
+    eng_chi_dict = {'日期': 'date', '总份数': 'total', '已使用': 'usedToday',
+                    '参与人数': 'usedPeopleNum', '活动包': 'activityName', '补贴金额': ''}
+    sublist = ['日期', '活动包', '总份数', '已使用', '参与人数', '补贴金额']
     ws.append(sublist)
     for index, platform_data in enumerate(platform_datas, 16):
         for col in range(1, len(eng_chi_dict) + 1):
-            ws.cell(row=index, column=col).value = platform_data[
+            ws.cell(row=index, column=col).value = platform_data.get(
                 eng_chi_dict[ws.cell(row=15, column=col).value]
-            ]
+            )
+    ws['B7'].value = "=SUM(D16:D{})".format(ws.max_row)
     ws['B8'].value = "=SUM(E16:E{})".format(ws.max_row)
+    ws['D8'].value = "=SUM(F16:F{})".format(ws.max_row)
 
 
 def platform_envelopes(start, end):
 
-    activity_ids = activity_ids_fetch()
+    activity_ids = activity_ids_fetch(str(start), str(end))
 
     for activity_id in activity_ids:
 
@@ -144,4 +145,4 @@ def platform_envelopes(start, end):
 
 if __name__ == "__main__":
 
-    platform_envelopes(start='2017-02-01', end='2017-03-08')
+    platform_envelopes(start='2017-03-01', end='2017-03-13')
