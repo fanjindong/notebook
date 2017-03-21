@@ -107,7 +107,7 @@ def normal_datas_to_excel(normal_data, platform_datas, start, end):
 def platform_datas_to_excel(ws, platform_datas):
     for row in range(9, 14):
         ws.append([''])
-    ws.append(['优惠券明细'] * 2)
+    ws.append(['活动包明细'] * 2)
     ws.merge_cells("A14:B14")
     left, right, top, bottom = [Side(style='thin', color='000000')] * 4
     for col in range(1, 3):
@@ -130,6 +130,7 @@ def platform_datas_to_excel(ws, platform_datas):
     ws['B7'].value = "=SUM(D16:D{})".format(ws.max_row)
     ws['B8'].value = "=SUM(E16:E{})".format(ws.max_row)
     ws['D8'].value = "=SUM(F16:F{})".format(ws.max_row)
+    ws['D8'].style = 'Currency'
 
 
 def platform_envelopes(start, end):
@@ -145,4 +146,4 @@ def platform_envelopes(start, end):
 
 if __name__ == "__main__":
 
-    platform_envelopes(start='2017-03-01', end='2017-03-13')
+    platform_envelopes(start='2017-03-01', end='2017-03-14')
