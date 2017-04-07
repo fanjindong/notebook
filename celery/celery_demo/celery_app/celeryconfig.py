@@ -12,6 +12,7 @@ imports = (
     'celery_app.task1',
     'celery_app.spider_cinema_film',
     'celery_app.komovie_cinema_film',
+    'celery_app.lvmama_image',
 )
 
 task_annotations = {
@@ -21,7 +22,7 @@ task_annotations = {
     'celery_app.task1.get_hotel_info_increment': {'rate_limit': '5000/m'}
 }
 
-task_time_limit = 60 * 3
+task_time_limit = 60 * 10
 
 beat_schedule = {
     'add-every-600-seconds': {
