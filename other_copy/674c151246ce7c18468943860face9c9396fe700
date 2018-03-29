@@ -1,0 +1,129 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "from connection import ConnectTask\n",
+    "import pandas as pd\n",
+    "import time\n",
+    "c=ConnectTask()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "4599"
+      ]
+     },
+     "execution_count": 13,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "start=time.mktime(time.strptime(\"2017-05-01 0:0:0\",\"%Y-%m-%d %H:%M:%S\"))*1000\n",
+    "end=time.mktime(time.strptime(\"2017-07-03 23:59:60\",\"%Y-%m-%d %H:%M:%S\"))*1000\n",
+    "c.pro.order_lite_list.find({\"appCode\":\"91ala\",\"status\":8}).count()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "4456"
+      ]
+     },
+     "execution_count": 15,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "c.pro.order_lite_list.find({\"appCode\":\"91ala\",\"status\":8,\"createdAt\":{\"$gt\":start,\"$lt\":end}}).count()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 43,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "{'异常': 240, '已下单': 3, '已退款': 107, '支付超时': 3983, '待支付': 472, '已完成': 1, '配送中': 1, '等待配送': 1}\n"
+     ]
+    }
+   ],
+   "source": [
+    "cause_dict={}\n",
+    "for item in c.pro.order_lite_list.find({\"appCode\":\"91ala\",\"status\":{\"$ne\":4},\"createdAt\":{\"$gt\":start,\"$lt\":end}},{\"_id\":0,\"id\":1,\"orderType\":1}):\n",
+    "    data=c.pro['order_{}'.format(item['orderType'])].find_one({'id':item['id']})\n",
+    "    try:\n",
+    "        cause=data['timeline'][-1].split(\" \")[-1]\n",
+    "        if cause==\"已取消\":\n",
+    "            cause=data['timeline'][-2].split(\" \")[-1]\n",
+    "            if cause==\"已取消\":\n",
+    "                cause=data['timeline'][-3].split(\" \")[-1]\n",
+    "    except:\n",
+    "        print(data['timeline'])\n",
+    "        continue\n",
+    "    cause_dict.setdefault(cause,0)\n",
+    "    cause_dict[cause]+=1\n",
+    "#     if cause in ['异常']:\n",
+    "#         print(cause,data['timeline'],data)\n",
+    "print(cause_dict)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

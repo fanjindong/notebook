@@ -1,0 +1,426 @@
+[
+    {
+      "cityId": 1,
+      "cityName": "北京",
+      "citySpell": "beijing",
+      "isHot": true,
+      "lat": 39.90403,
+      "lng": 116.407526
+    },
+    {
+      "cityId": 14,
+      "cityName": "广州",
+      "citySpell": "guangzhou",
+      "isHot": true,
+      "lat": 23.129163,
+      "lng": 113.264435
+    },
+    {
+      "cityId": 8,
+      "cityName": "杭州",
+      "citySpell": "hangzhou",
+      "isHot": true,
+      "lat": 30.274085,
+      "lng": 120.15507
+    },
+    {
+      "cityId": 6,
+      "cityName": "上海",
+      "citySpell": "shanghai",
+      "isHot": true,
+      "lat": 31.230416,
+      "lng": 121.473701
+    },
+    {
+      "cityId": 15,
+      "cityName": "深圳",
+      "citySpell": "shenzhen",
+      "isHot": true,
+      "lat": 22.543099,
+      "lng": 114.057868
+    },
+    {
+      "cityId": 23,
+      "cityName": "长春",
+      "citySpell": "changchun",
+      "isHot": false,
+      "lat": 43.817072,
+      "lng": 125.323544
+    },
+    {
+      "cityId": 24,
+      "cityName": "长沙",
+      "citySpell": "changsha",
+      "isHot": false,
+      "lat": 28.228209,
+      "lng": 112.938814
+    },
+    {
+      "cityId": 119,
+      "cityName": "常州",
+      "citySpell": "changzhou",
+      "isHot": false,
+      "lat": 31.810689,
+      "lng": 119.973987
+    },
+    {
+      "cityId": 11,
+      "cityName": "成都",
+      "citySpell": "chengdu",
+      "isHot": false,
+      "lat": 30.572269,
+      "lng": 104.066541
+    },
+    {
+      "cityId": 12,
+      "cityName": "重庆",
+      "citySpell": "chongqing",
+      "isHot": false,
+      "lat": 29.56301,
+      "lng": 106.551557
+    },
+    {
+      "cityId": 3,
+      "cityName": "大连",
+      "citySpell": "dalian",
+      "isHot": false,
+      "lat": 38.914003,
+      "lng": 121.614682
+    },
+    {
+      "cityId": 229,
+      "cityName": "东莞",
+      "citySpell": "dongguan",
+      "isHot": false,
+      "lat": 23.020536,
+      "lng": 113.751765
+    },
+    {
+      "cityId": 227,
+      "cityName": "佛山",
+      "citySpell": "foshan",
+      "isHot": false,
+      "lat": 23.021548,
+      "lng": 113.121416
+    },
+    {
+      "cityId": 13,
+      "cityName": "福州",
+      "citySpell": "fuzhou",
+      "isHot": false,
+      "lat": 26.074508,
+      "lng": 119.296494
+    },
+    {
+      "cityId": 247,
+      "cityName": "桂林",
+      "citySpell": "guilin",
+      "isHot": false,
+      "lat": 25.273566,
+      "lng": 110.290195
+    },
+    {
+      "cityId": 339,
+      "cityName": "贵阳",
+      "citySpell": "guiyang",
+      "isHot": false,
+      "lat": 26.647661,
+      "lng": 106.630154
+    },
+    {
+      "cityId": 25,
+      "cityName": "哈尔滨",
+      "citySpell": "haerbin",
+      "isHot": false,
+      "lat": 45.803775,
+      "lng": 126.534967
+    },
+    {
+      "cityId": 16,
+      "cityName": "海口",
+      "citySpell": "haikou",
+      "isHot": false,
+      "lat": 20.044002,
+      "lng": 110.198293
+    },
+    {
+      "cityId": 26,
+      "cityName": "合肥",
+      "citySpell": "hefei",
+      "isHot": false,
+      "lat": 31.820587,
+      "lng": 117.227239
+    },
+    {
+      "cityId": 54,
+      "cityName": "呼和浩特",
+      "citySpell": "huhehaote",
+      "isHot": false,
+      "lat": 40.842585,
+      "lng": 111.749181
+    },
+    {
+      "cityId": 231,
+      "cityName": "惠州",
+      "citySpell": "huizhou",
+      "isHot": false,
+      "lat": 23.111847,
+      "lng": 114.416196
+    },
+    {
+      "cityId": 5,
+      "cityName": "济南",
+      "citySpell": "jinan",
+      "isHot": false,
+      "lat": 36.651216,
+      "lng": 117.12
+    },
+    {
+      "cityId": 27,
+      "cityName": "昆明",
+      "citySpell": "kunming",
+      "isHot": false,
+      "lat": 24.880095,
+      "lng": 102.832892
+    },
+    {
+      "cityId": 366,
+      "cityName": "昆山",
+      "citySpell": "kunshan",
+      "isHot": false,
+      "lat": 31.395393,
+      "lng": 120.968477
+    },
+    {
+      "cityId": 306,
+      "cityName": "兰州",
+      "citySpell": "lanzhou",
+      "isHot": false,
+      "lat": 36.061089,
+      "lng": 103.834304
+    },
+    {
+      "cityId": 182,
+      "cityName": "洛阳",
+      "citySpell": "luoyang",
+      "isHot": false,
+      "lat": 34.619683,
+      "lng": 112.45404
+    },
+    {
+      "cityId": 28,
+      "cityName": "南昌",
+      "citySpell": "nanchang",
+      "isHot": false,
+      "lat": 28.682892,
+      "lng": 115.858198
+    },
+    {
+      "cityId": 7,
+      "cityName": "南京",
+      "citySpell": "nanjing",
+      "isHot": false,
+      "lat": 32.060255,
+      "lng": 118.796877
+    },
+    {
+      "cityId": 242,
+      "cityName": "南宁",
+      "citySpell": "nanning",
+      "isHot": false,
+      "lat": 22.817002,
+      "lng": 108.366543
+    },
+    {
+      "cityId": 29,
+      "cityName": "宁波",
+      "citySpell": "ningbo",
+      "isHot": false,
+      "lat": 29.874557,
+      "lng": 121.550357
+    },
+    {
+      "cityId": 4,
+      "cityName": "青岛",
+      "citySpell": "qingdao",
+      "isHot": false,
+      "lat": 36.067082,
+      "lng": 120.38264
+    },
+    {
+      "cityId": 157,
+      "cityName": "泉州",
+      "citySpell": "quanzhou",
+      "isHot": false,
+      "lat": 24.874132,
+      "lng": 118.675676
+    },
+    {
+      "cityId": 17,
+      "cityName": "三亚",
+      "citySpell": "sanya",
+      "isHot": false,
+      "lat": 18.252847,
+      "lng": 109.511909
+    },
+    {
+      "cityId": 21,
+      "cityName": "沈阳",
+      "citySpell": "shenyang",
+      "isHot": false,
+      "lat": 41.805698,
+      "lng": 123.431475
+    },
+    {
+      "cityId": 33,
+      "cityName": "石家庄",
+      "citySpell": "shijiazhuang",
+      "isHot": false,
+      "lat": 38.042309,
+      "lng": 114.514862
+    },
+    {
+      "cityId": 19,
+      "cityName": "苏州",
+      "citySpell": "suzhou",
+      "isHot": false,
+      "lat": 31.298886,
+      "lng": 120.585316
+    },
+    {
+      "cityId": 30,
+      "cityName": "太原",
+      "citySpell": "taiyuan",
+      "isHot": false,
+      "lat": 37.87059,
+      "lng": 112.548879
+    },
+    {
+      "cityId": 2,
+      "cityName": "天津",
+      "citySpell": "tianjin",
+      "isHot": false,
+      "lat": 39.084158,
+      "lng": 117.200983
+    },
+    {
+      "cityId": 127,
+      "cityName": "温州",
+      "citySpell": "wenzhou",
+      "isHot": false,
+      "lat": 27.994267,
+      "lng": 120.699367
+    },
+    {
+      "cityId": 20,
+      "cityName": "武汉",
+      "citySpell": "wuhan",
+      "isHot": false,
+      "lat": 30.593099,
+      "lng": 114.305393
+    },
+    {
+      "cityId": 329,
+      "cityName": "乌鲁木齐",
+      "citySpell": "wulumuqi",
+      "isHot": false,
+      "lat": 43.825592,
+      "lng": 87.616848
+    },
+    {
+      "cityId": 116,
+      "cityName": "无锡",
+      "citySpell": "wuxi",
+      "isHot": false,
+      "lat": 31.49117,
+      "lng": 120.31191
+    },
+    {
+      "cityId": 18,
+      "cityName": "厦门",
+      "citySpell": "xiamen",
+      "isHot": false,
+      "lat": 24.479834,
+      "lng": 118.089425
+    },
+    {
+      "cityId": 22,
+      "cityName": "西安",
+      "citySpell": "xian",
+      "isHot": false,
+      "lat": 34.341568,
+      "lng": 108.940175
+    },
+    {
+      "cityId": 466,
+      "cityName": "咸阳",
+      "citySpell": "xianyang",
+      "isHot": false,
+      "lat": 34.329605,
+      "lng": 108.708992
+    },
+    {
+      "cityId": 319,
+      "cityName": "西宁",
+      "citySpell": "xining",
+      "isHot": false,
+      "lat": 36.617144,
+      "lng": 101.778228
+    },
+    {
+      "cityId": 117,
+      "cityName": "徐州",
+      "citySpell": "xuzhou",
+      "isHot": false,
+      "lat": 34.205768,
+      "lng": 117.284124
+    },
+    {
+      "cityId": 175,
+      "cityName": "烟台",
+      "citySpell": "yantai",
+      "isHot": false,
+      "lat": 37.463822,
+      "lng": 121.447935
+    },
+    {
+      "cityId": 326,
+      "cityName": "银川",
+      "citySpell": "yinchuan",
+      "isHot": false,
+      "lat": 38.487194,
+      "lng": 106.230909
+    },
+    {
+      "cityId": 368,
+      "cityName": "义乌",
+      "citySpell": "yiwu",
+      "isHot": false,
+      "lat": 29.306841,
+      "lng": 120.075058
+    },
+    {
+      "cityId": 31,
+      "cityName": "郑州",
+      "citySpell": "zhengzhou",
+      "isHot": false,
+      "lat": 34.7466,
+      "lng": 113.625368
+    },
+    {
+      "cityId": 228,
+      "cityName": "中山",
+      "citySpell": "zhongshan",
+      "isHot": false,
+      "lat": 22.517646,
+      "lng": 113.392782
+    },
+    {
+      "cityId": 32,
+      "cityName": "珠海",
+      "citySpell": "zhuhai",
+      "isHot": false,
+      "lat": 22.270715,
+      "lng": 113.576726
+    }
+  ]

@@ -1,0 +1,1176 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 44,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "from __future__ import absolute_import, unicode_literals\n",
+    "\n",
+    "import hashlib\n",
+    "import json\n",
+    "import time\n",
+    "import traceback\n",
+    "from pprint import pprint\n",
+    "import requests\n",
+    "from collections import defaultdict\n",
+    "from pymongo import MongoClient, ReturnDocument\n",
+    "from connection import ConnectionTask\n",
+    "c=ConnectionTask()\n",
+    "import re\n",
+    "\n",
+    "import conf\n",
+    "class LvmamaTask():\n",
+    "    #: If :const:`True` the task is an abstract base class.\n",
+    "    abstract = True\n",
+    "    _pro = None\n",
+    "    _stg = None\n",
+    "    _dev = None\n",
+    "\n",
+    "    @property\n",
+    "    def pro(self):\n",
+    "        if self._pro is None:\n",
+    "            _pro = MongoClient(conf.PRO_MONGO_HOST, replicaset=conf.REPLICASET_NAME)\n",
+    "            self._pro = _pro[\"boluome\"]\n",
+    "        return self._pro\n",
+    "\n",
+    "    @property\n",
+    "    def stg(self):\n",
+    "        if self._stg is None:\n",
+    "            _stg = MongoClient(conf.STG_MONGO_HOST, replicaset=conf.REPLICASET_NAME)\n",
+    "            self._stg = _stg[\"boluome\"]\n",
+    "        return self._stg\n",
+    "\n",
+    "    @property\n",
+    "    def dev(self):\n",
+    "        if self._dev is None:\n",
+    "            _dev = MongoClient(conf.DEV_MONGO_HOST, replicaset=conf.REPLICASET_NAME)\n",
+    "            self._dev = _dev[\"boluome\"]\n",
+    "        return self._dev\n",
+    "l=LvmamaTask()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "api_url = \"http://api.lvmama.com/distributorApi/2.0/api/ticketProd/\"\n",
+    "app_key = \"BOLUOMI\"\n",
+    "secret = \"5ef1f365cae39119bd04b8afb35b134f\""
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 61,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<AsyncResult: 985be016-731b-496d-b1c4-02c92093cbb3>"
+      ]
+     },
+     "execution_count": 61,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# 调dpp.function\n",
+    "from path import Path\n",
+    "Path('/root/dpp/').cd()\n",
+    "from lvmama_worker import good_price_fetch\n",
+    "good_price_fetch.apply_async(args=[None,None,False,True],queue='dpp_lvmama_tasks')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 163,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "{'scenicNameList': [{'placeCity': '<![CDATA[上海]]>',\n",
+       "   'placeCountry': '<![CDATA[中国]]>',\n",
+       "   'placeProvince': '<![CDATA[上海]]>',\n",
+       "   'scenicId': '10925367',\n",
+       "   'scenicName': '<![CDATA[测试POI变更周丽专用]]>'}],\n",
+       " 'state': {'code': '1000', 'message': '成功', 'solution': '接口访问成功'}}"
+      ]
+     },
+     "execution_count": 163,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "def scenic_info_list(scenic_id):\n",
+    "    \"\"\"获取单个景区的基本信息\"\"\"\n",
+    "    ts = int(time.time())\n",
+    "    sign = hashlib.md5('{}{}{}'.format(secret, ts, secret).encode('utf-8')).hexdigest()\n",
+    "    key_data = {\n",
+    "        'appKey': app_key,\n",
+    "        'messageFormat': 'json',\n",
+    "        'timestamp': ts,\n",
+    "        'sign': sign,\n",
+    "        'scenicId': scenic_id\n",
+    "    }\n",
+    "    url=api_url+'/scenicInfoList'\n",
+    "    resp_data = requests.get(url, params=key_data).json()\n",
+    "    return resp_data\n",
+    "scenic_info_list('10925367') "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": false
+   },
+   "outputs": [],
+   "source": [
+    "def product_ids_fetch():\n",
+    "    for product in l.pro['menpiao_products'].find({},['id']):\n",
+    "        product_id=product['id']\n",
+    "        print(product_id)\n",
+    "        products_info(product_id)\n",
+    "    return \n",
+    "# product_ids_fetch()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "def products_info(product_ids):\n",
+    "    ts = int(time.time())\n",
+    "    sign = hashlib.md5('{}{}{}'.format(secret, ts, secret).encode('utf-8')).hexdigest()\n",
+    "    key_data = {\n",
+    "        'appKey': app_key,\n",
+    "        'messageFormat': 'json',\n",
+    "        'timestamp': ts,\n",
+    "        'sign': sign,\n",
+    "        'productIds': product_ids\n",
+    "    }\n",
+    "    url = api_url + \"/productInfoList\"\n",
+    "    try:\n",
+    "        resp_data = requests.get(url, params=key_data).json()\n",
+    "        product_list=resp_data['productList']\n",
+    "        product_data=product_list[0]\n",
+    "#         return product_data\n",
+    "    except KeyError :\n",
+    "        pprint(resp_data)\n",
+    "        return \n",
+    "\n",
+    "    def dict_none():\n",
+    "        return None\n",
+    "    data = defaultdict(dict_none, product_data)\n",
+    "\n",
+    "    def clean_data(data):\n",
+    "        if isinstance(data, str)and ('<![CDATA' in data):\n",
+    "            return data[9:-3]\n",
+    "        return data\n",
+    "    return data\n",
+    "    scenic_info = {}\n",
+    "    scenic_info['id'] = clean_data(data['productId'])\n",
+    "    if not scenic_info['id']:\n",
+    "        return 'products info err'\n",
+    "    scenic_info['placeId'] = clean_data(data['placeId'])\n",
+    "    scenic_info['placeName'] = clean_data(data['placeName'])\n",
+    "    scenic_info['type'] = clean_data(data['productType'])\n",
+    "    scenic_info['status'] = clean_data(data['productStatus'])\n",
+    "    scenic_info['posts'] = clean_data(data['postList'])\n",
+    "    scenic_info['recommends'] = clean_data(data['recommendList'])\n",
+    "    scenic_info['bookingInfo'] = clean_data(data['bookingInfo'])\n",
+    "    scenic_info['intro'] = clean_data(data['introdution'])\n",
+    "    scenic_info['activities'] = clean_data(data['activities'])\n",
+    "    scenic_info['character'] = clean_data(data['characteristic'])\n",
+    "    scenic_info['playAttractions'] = clean_data(data['playAttractions'])\n",
+    "    scenic_info['productTheme'] = clean_data(data['productTheme'])\n",
+    "    scenic_info['serviceGuarantee'] = clean_data(data['serviceGuarantee'])\n",
+    "    scenic_info['images'] = clean_data(data['images'])\n",
+    "    l.dev['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "    l.stg['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "#     l.pro['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "\n",
+    "    goods_ids=data['goodsIds']\n",
+    "    \n",
+    "    return good_info_fetch(goods_ids) if goods_ids else 'no goods_ids'\n",
+    "\n",
+    "# products_info(585857)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 164,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "defaultdict(<function products_info.<locals>.dict_none at 0x7f1f218bc400>,\n",
+      "            {'bookingInfo': {'freePolicy': '<![CDATA[a. 6周岁（含）以下的儿童免票。]]>',\n",
+      "                             'offerCrowd': '<![CDATA[a. '\n",
+      "                                           '65周岁（含）以上的老人（凭身份证）享8折优惠。]]>'},\n",
+      "             'characteristic': ['<![CDATA[景区特色]]>'],\n",
+      "             'goodsIds': '6689866',\n",
+      "             'images': ['http://pic.lvmama.com//uploads/pc/place2/2016-06-16/cb0700dd-444d-4f9f-976c-ef8206e68b75.jpg',\n",
+      "                        'http://pic.lvmama.com//uploads/pc/place2/2016-06-16/55752afa-39c3-47e1-b53e-dbd361faca44.jpg',\n",
+      "                        'http://pic.lvmama.com//uploads/pc/place2/2016-06-16/0a115a65-6cfa-41fd-9cbe-7313d77c27d2.jpg'],\n",
+      "             'introdution': '<![CDATA[syuuIE8景点门票简介描述]]>',\n",
+      "             'placeId': 10925367,\n",
+      "             'placeName': {'mainName': '<![CDATA[测试POI变更周丽专用]]>'},\n",
+      "             'playAttractions': [{'playImages': ['http://pic.lvmama.com//uploads/pc/place2/2015-08-07/af1d073b-1508-4f66-9cfc-3ed575efe28e.jpg'],\n",
+      "                                  'playInfo': '<![CDATA[syuuIE8游玩景点描述信息gergght]]>',\n",
+      "                                  'playName': '<![CDATA[syuuIE8游玩景点]]>'}],\n",
+      "             'productId': 572989,\n",
+      "             'productName': '<![CDATA[syuu景点门票-测试用，请勿下单]]>',\n",
+      "             'productStatus': 'false',\n",
+      "             'productTheme': ['温泉'],\n",
+      "             'productType': 'category_single_ticket',\n",
+      "             'serviceGuarantee': 'ENSURING_THE_PARK\\r\\n'\n",
+      "                                 'DESCRIBE_TRUTHFULLY\\r\\n'\n",
+      "                                 'EXPENSIVE_THEN_PAY\\r\\n'\n",
+      "                                 'ENSURING_THE_GARDEN'})\n"
+     ]
+    }
+   ],
+   "source": [
+    "resp_data=products_info(\"572989\")\n",
+    "pprint(resp_data)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "def good_info_fetch(goods_id):\n",
+    "    ts = int(time.time())\n",
+    "    sign = hashlib.md5('{}{}{}'.format(secret, ts, secret).encode('utf-8')).hexdigest()\n",
+    "    key_data = {\n",
+    "        'appKey': app_key,\n",
+    "        'messageFormat': 'json',\n",
+    "        'timestamp': ts,\n",
+    "        'sign': sign,\n",
+    "        'goodsIds': goods_id\n",
+    "    }\n",
+    "    url = api_url + \"/goodInfoList\"\n",
+    "    try:\n",
+    "        resp_data = requests.get(url, params=key_data).json()['goodsList']\n",
+    "        return resp_data\n",
+    "    except KeyError:\n",
+    "        return 'good no data'\n",
+    "    for item in resp_data:\n",
+    "        def dict_none():\n",
+    "            return None\n",
+    "        data = defaultdict(dict_none, item)\n",
+    "        pprint(data)\n",
+    "        continue\n",
+    "        def clean_data(data):\n",
+    "            if isinstance(data, str)and ('<![CDATA' in data):\n",
+    "                return data[9:-3]\n",
+    "            return data\n",
+    "        good_info = {}\n",
+    "        good_info['goodsId'] = clean_data(data['goodsId'])\n",
+    "        if not good_info['goodsId']:\n",
+    "            return 'good info err'\n",
+    "\n",
+    "        good_info['productId'] = clean_data(data['productId'])\n",
+    "        good_info['standardName'] = clean_data(data['standardName'])\n",
+    "        good_info['goodsName'] = clean_data(data['goodsName'])\n",
+    "        good_info['goodsSort'] = clean_data(data['goodsSort'])\n",
+    "        good_info['paymentType'] = clean_data(data['paymentType'])\n",
+    "        good_info['ticketType'] = clean_data(data['ticketType'])\n",
+    "        good_info['adultTicket'] = clean_data(data['adultTicket'])\n",
+    "        good_info['childTicket'] = clean_data(data['childTicket'])\n",
+    "        good_info['goodsType'] = clean_data(data['goodsType'])\n",
+    "        good_info['certificate'] = clean_data(data['certificate'])\n",
+    "        good_info['status'] = clean_data(data['status'])\n",
+    "        good_info['rules'] = clean_data(data['rules'])\n",
+    "        good_info['otherRule'] = clean_data(data['otherRule'])\n",
+    "        good_info['effective'] = clean_data(data['effective'])\n",
+    "        good_info['minimum'] = clean_data(data['minimum'])\n",
+    "        good_info['maximum'] = clean_data(data['maximum'])\n",
+    "        good_info['costInclude'] = clean_data(data['costInclude'])\n",
+    "        good_info['passTimeLimit'] = clean_data(data['passTimeLimit'])\n",
+    "        good_info['notice'] = clean_data(data['notice'])\n",
+    "        good_info['importentPoint'] = clean_data(data['importentPoint'])\n",
+    "        good_info['refundRuleNotice'] = clean_data(data['refundRuleNotice'])\n",
+    "        good_info['booker'] = clean_data(data['booker'])\n",
+    "        good_info['traveller'] = clean_data(data['traveller'])\n",
+    "        good_info['costInclude'] = clean_data(data['costInclude'])\n",
+    "        good_info['needTicket'] = clean_data(data['needTicket'])\n",
+    "        good_info['visitAddress'] = clean_data(data['visitAddress'])\n",
+    "        good_info['importantNotice'] = clean_data(data['importantNotice'])\n",
+    "        good_info['limitation'] = clean_data(data['limitation'])\n",
+    "        good_info['Ticketdescription'] = clean_data(data['Ticketdescription'])\n",
+    "#         pprint(good_info)\n",
+    "#         l.dev['menpiao_goods_lvmama'].update_one({'goodsId': good_info['goodsId']}, {'$set': good_info}, upsert=True)\n",
+    "#         l.stg['menpiao_goods_lvmama'].update_one({'goodsId': good_info['goodsId']}, {'$set': good_info}, upsert=True)\n",
+    "#         l.pro['menpiao_goods_lvmama'].update_one({'goodsId': good_info['goodsId']}, {'$set': good_info}, upsert=True)\n",
+    "    return \n",
+    "# good_info_fetch('3971646')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "data=good_info_fetch(\"1787823\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "def good_price_fetch(goods_id):\n",
+    "    ts = int(time.time())\n",
+    "    begin_date=time.strftime(\"%Y-%m-%d\",time.localtime(ts))\n",
+    "    end_date=time.strftime(\"%Y-%m-%d\",time.localtime(ts+60*60*24*30))\n",
+    "    sign = hashlib.md5('{}{}{}'.format(secret, ts, secret).encode('utf-8')).hexdigest()\n",
+    "    key_data = {\n",
+    "        'appKey': app_key,\n",
+    "        'messageFormat': 'json',\n",
+    "        'timestamp': ts,\n",
+    "        'sign': sign,\n",
+    "        'goodsIds': goods_id,\n",
+    "        'beginDate':begin_date,\n",
+    "        'endDate':end_date\n",
+    "    }\n",
+    "    url = api_url + \"/goodPriceList\"\n",
+    "    try:\n",
+    "        resp_data = requests.get(url, params=key_data).json()['priceList'][0]['goodsList']['goods']\n",
+    "        return resp_data\n",
+    "    except KeyError:\n",
+    "        return 'good price no data'\n",
+    "    pprint(resp_data)\n",
+    "    return\n",
+    "    for item in resp_data:\n",
+    "        def dict_none():\n",
+    "            return None\n",
+    "        data = defaultdict(dict_none, item)\n",
+    "        def clean_data(data):\n",
+    "            if isinstance(data, str)and ('<![CDATA' in data):\n",
+    "                return data[9:-3]\n",
+    "            return data\n",
+    "        good_info = {}\n",
+    "        good_info['goodsId'] = clean_data(data['goodsId'])\n",
+    "        if not good_info['goodsId']:\n",
+    "            return 'good info err'\n",
+    "        good_info['goodsId'] = clean_data(data['goodsId'])\n",
+    "        good_info['goodsName'] = clean_data(data['goodsName'])\n",
+    "        good_info['goodsOnLine'] = clean_data(data['goodsOnLine'])\n",
+    "        good_info['prices'] = clean_data(data['prices'].get('price'))\n",
+    "        \n",
+    "        l.dev['menpiao_goods_lvmama'].update_one({'goodsId': good_info['goodsId']}, {'$set': good_info}, upsert=True)\n",
+    "        l.stg['menpiao_goods_lvmama'].update_one({'goodsId': good_info['goodsId']}, {'$set': good_info}, upsert=True)\n",
+    "#         l.pro['menpiao_goods_lvmama'].update_one({'goodsId': good_info['goodsId']}, {'$set': good_info}, upsert=True)\n",
+    "    return "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<pymongo.results.UpdateResult at 0x7ffac2edf6c0>"
+      ]
+     },
+     "execution_count": 30,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "l.dev['menpiao_goods'].update_one({'id':'1787823'},{'$set':{'prices': [{'aheadHour': 2880,\n",
+    "                        'date': '2017-07-09',\n",
+    "                        'marketPrice': 4900.0,\n",
+    "                        'sellPrice': 3380.0,\n",
+    "                        'stock': -1},\n",
+    "                       {'aheadHour': 2880,\n",
+    "                        'date': '2017-07-16',\n",
+    "                        'marketPrice': 4900.0,\n",
+    "                        'sellPrice': 3380.0,\n",
+    "                        'stock': -1}]}})"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "data=good_price_fetch('1787823')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "deletable": true,
+    "editable": true
+   },
+   "source": [
+    "## 2.全量更新数据库\n",
+    "+ 2.1 批量景区基本信息接口 scenicInfoListByPage"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "def scenic_info_fetch(current_page=1):\n",
+    "    ts = int(time.time())\n",
+    "    sign = hashlib.md5('{}{}{}'.format(secret, ts, secret).encode('utf-8')).hexdigest()\n",
+    "    key_data = {\n",
+    "        'appKey': app_key,\n",
+    "        'messageFormat': 'json',\n",
+    "        'timestamp': ts,\n",
+    "        'sign': sign,\n",
+    "        'currentPage': current_page\n",
+    "    }\n",
+    "    api_url = \"http://api.lvmama.com/distributorApi/2.0/api/ticketProd/\"\n",
+    "    url = api_url + \"/scenicInfoListByPage\"\n",
+    "    try:\n",
+    "        resp_data = requests.get(url, params=key_data).json()\n",
+    "        return resp_data\n",
+    "        scenic_name_list=resp_data['scenicNameList']\n",
+    "        total_page=resp_data['totalPage'] if current_page==1 else 0\n",
+    "#         product_data=product_list[0]\n",
+    "    except KeyError :\n",
+    "        pprint(resp_data)\n",
+    "        return \n",
+    "    \n",
+    "    for item in scenic_name_list:\n",
+    "        def dict_none():\n",
+    "            return None\n",
+    "        data = defaultdict(dict_none, product_data)\n",
+    "\n",
+    "        def clean_data(data):\n",
+    "            if isinstance(data, str)and ('<![CDATA' in data):\n",
+    "                return data[9:-3]\n",
+    "            return data\n",
+    "\n",
+    "#         scenic_info = {}\n",
+    "#         scenic_info['id']=d\n",
+    "#         l.stg['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "    #     l.pro['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "\n",
+    "        goods_ids=data['goodsIds']\n",
+    "    \n",
+    "    return \n",
+    "\n",
+    "resp_data=scenic_info_fetch(559)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "def products_info(product_ids):\n",
+    "    ts = int(time.time())\n",
+    "    sign = hashlib.md5('{}{}{}'.format(secret, ts, secret).encode('utf-8')).hexdigest()\n",
+    "    key_data = {\n",
+    "        'appKey': app_key,\n",
+    "        'messageFormat': 'json',\n",
+    "        'timestamp': ts,\n",
+    "        'sign': sign,\n",
+    "        'productIds': product_ids\n",
+    "    }\n",
+    "    url = api_url + \"/productInfoList\"\n",
+    "    try:\n",
+    "        resp_data = requests.get(url, params=key_data).json()\n",
+    "        product_list=resp_data['productList']\n",
+    "        product_data=product_list[0]\n",
+    "    except KeyError :\n",
+    "        pprint(resp_data)\n",
+    "        return \n",
+    "\n",
+    "    def dict_none():\n",
+    "        return None\n",
+    "    data = defaultdict(dict_none, product_data)\n",
+    "\n",
+    "    def clean_data(data):\n",
+    "        if isinstance(data, str)and ('<![CDATA' in data):\n",
+    "            return data[9:-3]\n",
+    "        return data\n",
+    "    scenic_info = {}\n",
+    "    scenic_info['id'] = clean_data(data['productId'])\n",
+    "    if not scenic_info['id']:\n",
+    "        return 'products info err'\n",
+    "    scenic_info['placeId'] = clean_data(data['placeId'])\n",
+    "    scenic_info['placeName'] = clean_data(data['placeName'])\n",
+    "    scenic_info['type'] = clean_data(data['productType'])\n",
+    "    scenic_info['status'] = clean_data(data['productStatus'])\n",
+    "    scenic_info['posts'] = clean_data(data['postList'])\n",
+    "    scenic_info['recommends'] = clean_data(data['recommendList'])\n",
+    "    scenic_info['bookingInfo'] = clean_data(data['bookingInfo'])\n",
+    "    scenic_info['intro'] = clean_data(data['introdution'])\n",
+    "    scenic_info['activities'] = clean_data(data['activities'])\n",
+    "    scenic_info['character'] = clean_data(data['characteristic'])\n",
+    "    scenic_info['playAttractions'] = clean_data(data['playAttractions'])\n",
+    "    scenic_info['productTheme'] = clean_data(data['productTheme'])\n",
+    "    scenic_info['serviceGuarantee'] = clean_data(data['serviceGuarantee'])\n",
+    "    scenic_info['images'] = clean_data(data['images'])\n",
+    "    l.dev['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "    l.stg['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "#     l.pro['menpiao_products'].update_one({'id': scenic_info['id']}, {'$set': scenic_info}, upsert=True)\n",
+    "\n",
+    "    goods_ids=data['goodsIds']\n",
+    "    \n",
+    "    return good_info_fetch(goods_ids) if goods_ids else 'no goods_ids'\n",
+    "\n",
+    "# products_info(585857)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "class test():\n",
+    "    def __init__(self):\n",
+    "        self._number=0\n",
+    "app=test()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "deletable": true,
+    "editable": true
+   },
+   "source": [
+    "### 统计驴妈妈goods 不支持分销情况"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 52,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "set()\n"
+     ]
+    }
+   ],
+   "source": [
+    "counter=set([])\n",
+    "for item in l.pro.menpiao_goods_1.find({\"prices\":{\"$exists\":True},\"status\":True},{\"prices\":1,\"id\":1}):\n",
+    "    if not item['prices']:\n",
+    "        continue\n",
+    "    for price in item['prices']:\n",
+    "        if price['stock'] == 0:\n",
+    "            counter.add(item[\"id\"])\n",
+    "            break\n",
+    "print(counter)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "deletable": true,
+    "editable": true
+   },
+   "source": [
+    "### lvmama 景区数据补偿"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 80,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "import json\n",
+    "import re\n",
+    "import ast\n",
+    "from connection import ConnectionTask\n",
+    "c=ConnectionTask()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 48,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "with open('/data/scenic_name_data.json') as f:\n",
+    "    data=f.read()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 84,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "21123 11318528103880106342 121300156282 159276160558 161228 161541 162238171549 178110 203749 203597 24905910007257 10010929 10014415 10016060 10022554 1002712910031354 10030346 10033896 10042184 10047637 10046768 10359370 10370671 10395790 10436001 1043845310048111 1047399310485044 10500180 105110451052017210518575 10541868 10583823 10609511 10506227 10628283 10641762 10661108 10777916 10823551\r"
+     ]
+    }
+   ],
+   "source": [
+    "count=0\n",
+    "err_item=[]\n",
+    "for line in  re.finditer('\\{\\\"state\\\".*?\\}\\}\\]\\}', data):\n",
+    "    item=line.group()\n",
+    "    try:\n",
+    "        scenic_list=json.loads(item)\n",
+    "    except :\n",
+    "        err_item.append(item)\n",
+    "    for scenic in scenic_list['scenicNameList']:\n",
+    "        count+=1\n",
+    "        scenic = defaultdict(lambda :None, scenic)\n",
+    "\n",
+    "        scenic_info = {}\n",
+    "        scenic_id = scenic['scenicId']\n",
+    "        if not scenic_id:\n",
+    "            continue\n",
+    "        scenic_info['status'] = True\n",
+    "        scenic_info['name'] = scenic['scenicName']\n",
+    "        scenic_info['info'] = scenic['placeInfo']\n",
+    "        scenic_info['act'] = scenic['placeAct']\n",
+    "        scenic_info['level'] = scenic['placeLevel']\n",
+    "        scenic_info['image'] = scenic['placeImage']\n",
+    "        scenic_info['addr'] = scenic['placeToAddr']\n",
+    "        scenic_info['openTimes'] = scenic['openTimes']\n",
+    "        scenic_info['town'] = scenic['placeTown']\n",
+    "        scenic_info['xian'] = scenic['placeXian']\n",
+    "        scenic_info['city'] = scenic['placeCity']\n",
+    "        scenic_info['province'] = scenic['placeProvince']\n",
+    "        scenic_info['country'] = scenic['placeCountry']\n",
+    "        scenic_info['baiduData'] = scenic['baiduData'] if scenic_id != \"175649\" else {\"longitude\": \"121.6572887\",\n",
+    "                                                                                    \"latitude\": \"31.1452795\"}\n",
+    "        scenic_info['googleData'] = scenic['googleData'] if scenic_id != \"175649\" else {\"longitude\": \"121.6572887\",\n",
+    "                                                                                      \"latitude\": \"31.1452795\"}\n",
+    "        loc_data = scenic_info['baiduData'] or scenic_info['googleData']\n",
+    "        scenic_info['loc'] = [float(loc_data['longitude']), float(loc_data['latitude'])] if loc_data else []\n",
+    "        scenic_info['__v'] =10086\n",
+    "        print(count,scenic_id,end='\\r')\n",
+    "        c.smdb['menpiao_scenic'].update_one({'id': scenic_id}, {'$set': scenic_info}, upsert=True)\n",
+    "        c.static['menpiao_scenic'].update_one({'id': scenic_id}, {'$set': scenic_info}, upsert=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 38,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "# lvmama.location\n",
+    "import ast\n",
+    "\n",
+    "for item in c.smdb.menpiao_scenic.find():\n",
+    "    loc=ast.literal_eval(item['loc'])\n",
+    "    location={\n",
+    "        \"type\": \"Point\",\n",
+    "        \"coordinates\": loc\n",
+    "    } if loc else {}\n",
+    "#     item['location']=location\n",
+    "    c.smdb.menpiao_scenic.update_one({'id':item['id']},{'$set':{'location':location}})\n",
+    "#     print(item)\n",
+    "#     break"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 42,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "#play_image_url_fetch\n",
+    "for item in c.static.menpiao_products.find(\n",
+    "        {\n",
+    "            'playAttractions': {'$exists': True, '$ne': []},\n",
+    "            'status': True\n",
+    "        },\n",
+    "        {'id': 1, 'playAttractions': 1, '_id': 0}\n",
+    "):\n",
+    "    url_list = item.get('playAttractions', [])\n",
+    "    product_id = item.get('id', '')\n",
+    "    if not (url_list and product_id):\n",
+    "        continue\n",
+    "    status = True\n",
+    "    for url in url_list:\n",
+    "        if 'sslPlayImages' in url:\n",
+    "            status = False\n",
+    "            break\n",
+    "        else:\n",
+    "            continue\n",
+    "    if status:\n",
+    "        print(product_id)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 38,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "from path import Path\n",
+    "Path('/root/dpp/').cd()\n",
+    "from lvmama_worker import file_transport_to_server"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 40,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "a=Path('/data/lvmama/')\n",
+    "for name in a.walkfiles('*.jpg'):\n",
+    "    file_transport_to_server.apply_async(args=[name],queue='dpp_lvmama_tasks')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "class Demo(object):\n",
+    "    _ssh=None\n",
+    "    @property\n",
+    "    def ssh(self):\n",
+    "        if Demo._ssh is None:\n",
+    "            Demo._ssh='hello'\n",
+    "        return Demo._ssh\n",
+    "    @property\n",
+    "    def init(self):\n",
+    "        Demo._ssh=None"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "d=Demo()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'hello'"
+      ]
+     },
+     "execution_count": 33,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "d.ssh"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 35,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "d.init"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 36,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "Demo._ssh"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "import paramiko\n",
+    "ssh = paramiko.SSHClient()\n",
+    "            # 这行代码的作用是允许连接不在know_hosts文件中的主机。\n",
+    "ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())\n",
+    "ssh.connect(\"139.198.3.124\", username=\"root\",timeout=3)\n",
+    "paramiko.SFTPClient.from_transport(ssh.get_transport())"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 155,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "sftp = ssh.open_sftp()\n",
+    "sftp2 = ssh.open_sftp()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 140,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "True"
+      ]
+     },
+     "execution_count": 140,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "ssh.get_transport().is_active()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 149,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "sftp.close()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 161,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "3\n"
+     ]
+    }
+   ],
+   "source": [
+    "try:\n",
+    "    raise KeyError\n",
+    "    sftp.listdir('/data/aa')\n",
+    "except FileNotFoundError:\n",
+    "    print('2')\n",
+    "except Exception:\n",
+    "    print(3)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 41,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "with open('/root/logs/lvmama.log') as f:\n",
+    "    lvmama_text=f.read()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 55,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "{'182043', '588613', '183302', '1054560', '842673', '245778', '595738', '433405', '251995', '252153', '238310', '242131', '591489', '1512633', '254528', '951301', '444263', '183215', '1509119', '1019030', '182690', '586908', '811208', '1198451', '181771', '1536640', '250311', '769379', '359680', '946081', '237362', '1501462', '183606', '253080', '1504389', '172440', '647355', '438216', '183515', '808048', '182722', '1526217', '183420', '251485', '248668', '1496859', '182645', '183306', '182515', '955221', '234726', '253986', '785414', '253366', '698844', '270023', '781146', '293301', '1558160', '252939', '873994', '181669', '364432', '781315', '183692', '1523315', '181696', '242805', '172170', '236224', '251878', '181844', '788849', '182137', '1533572', '877518', '663619', '1537345', '1054895', '248586', '253369', '255092', '181932', '331630', '183928', '182462', '181781', '252600', '253935', '253171', '234896', '1523762', '255989', '652419', '255292', '181746', '1550149', '252364', '1063239', '182262', '1004042', '276815', '841647', '183944', '183072', '594807', '255288', '1528238', '600253', '630756', '183442', '256576', '841739', '253207', '437073', '182637', '787228', '255451', '302052', '182376', '244809', '172140', '235835', '951567', '240008', '345962', '881865', '183812', '837905', '1524040', '248796', '253808', '238362', '1080663', '877028', '183747', '954710', '869874', '879696', '254641', '256896', '182578', '184011', '172393', '412259', '1076721', '877993', '1076814', '1537414', '256770', '673841', '1500442', '228376', '183952', '256745', '183908', '1534816', '838020', '868556', '1076564', '338519', '183081', '642925', '181666', '182091', '254789', '612496', '183449', '310397', '240036', '183029', '181832', '1516274', '259126', '825932', '172328', '254675', '235898', '1076281', '172248', '243157', '255584', '182996', '442942', '306540', '252345', '1520214', '183852', '253074', '233130', '853856', '872141', '420048', '913904', '955833', '681586', '172336', '183360', '424610', '172183', '183393', '248997', '564546', '787016', '1528840', '254415', '375614', '390552', '182443', '431812', '236311', '181849', '1546527', '365727', '1536651', '255504', '181953', '182174', '252507', '1174647', '1553690', '233797', '181570', '251449', '252256', '1068516', '862779', '256059', '255383', '388451', '255662', '1546587', '1494768', '658073', '1500727', '1554550', '172377', '1004058', '435616', '1498206', '255147', '255670', '256625', '1031921', '182700', '255732', '388891', '254631', '239744', '1515799', '1514529', '865484', '255286', '377192', '172375', '989935', '338401', '181949', '1507389', '182908', '255456', '648530', '1078389', '1532384', '183609', '948212', '182525', '556870', '1555638', '1543539', '182621', '181896', '183695', '1066851', '1495425', '182322', '1072431', '742122', '1549183', '288940', '579176', '183848', '182591', '172284', '182029', '326172', '255015', '952983', '183265', '239994', '272481', '1055302', '244172', '604541', '820980', '801080', '684355', '249511', '182556', '1059719', '787953', '950607', '770362', '565779', '1545916', '1536824', '880740', '1075473', '1556685', '183849', '239953', '183549', '243176', '253063', '619116', '670517', '183291', '237265', '677804', '328444', '253834', '929668', '949463', '1560497', '952059', '1515186', '843897', '1494155', '244717', '1510685', '249906', '854331', '182802', '1554013', '399223', '333634', '255150', '652967', '774612', '181910', '255800', '181874', '664479', '256541', '183746', '383706', '1551807', '172765', '253263', '438639', '172132', '248849', '234818', '941804', '172322', '1518868', '182990', '238236', '1521294', '648138', '183242', '253461', '254398', '310384', '254217', '1540152', '234858', '931164', '172223', '234833', '866717', '947663', '183280', '255803', '882519', '1018815', '286757', '277974', '181945', '1066073', '605385', '254326', '1491667', '1539957', '811555', '430658', '183693', '439281', '433301', '682666', '1515045', '183526', '182919', '855916', '361483', '172427', '256196', '382659', '254007', '1076832', '1492158', '253200', '781289', '423679', '1058711', '400720', '613889', '379098', '1443306', '172468', '328458', '234750', '386752', '248453', '946194', '254282', '628813', '238119', '182270', '637896', '1542732', '1521956', '951803', '234732', '390594', '245616', '255004', '183890', '872337', '182012', '233185', '183241', '373647', '181853', '256614', '1509856', '842507', '1541021', '182808', '181704', '254453', '1541928', '183212', '182707', '876907', '238281', '182056', '255138', '673721', '869979', '182496', '598884', '233197', '1077731', '1541897', '381720', '946853', '182369', '853314', '342323', '181542', '591370', '953672', '172365', '1077302', '642609', '1562334', '248473', '172191', '1514546', '292505', '1494848', '182119', '288944', '183217', '183427', '172238', '172416', '1499032', '1516918', '950609', '1549036', '183838', '183876', '689818', '420570', '1494607', '400783', '1538513', '584379', '256831', '1012842', '257041', '930746', '239793', '254651', '181792', '254015', '1530285', '639723', '183707', '1495450', '172250', '948007', '569873', '251536', '597777', '612062', '608628', '172439', '613900', '435045', '181584', '1527010', '182769', '242081', '1533454', '623701', '254788', '257124', '233825', '182570', '249772', '254796', '1062953', '630096', '590853', '275284', '1541966', '172378', '248317', '181743', '1508849', '880865', '619230', '253445', '801458', '1456790', '181965', '1003238', '868729', '945459', '249217', '181957', '306524', '949744', '664742', '612053', '293963', '1064843', '172771', '243253', '364037', '651198', '234875', '183577', '1023153', '1031290', '1540675', '1526775', '950475', '345914', '832875', '645152', '182385', '951306', '364235', '253416', '255157', '172290', '849901', '1499085', '172431', '182899', '942914', '251616', '386440', '339952', '840910', '256922', '1507198', '255302', '1167755', '599748', '877974', '182435', '953418', '247351', '1518324', '181580', '183736', '1442631', '256830', '239784', '650209', '256899', '182764', '182364', '576927', '1076661', '183253', '1551713', '182460', '183386', '434024', '183346', '181711', '300983', '858367', '416965', '246956', '788797', '1076803', '255779', '1040783', '641730', '1542728', '249553', '585326', '182597', '172148', '172470', '183382', '172264', '435104', '1533523', '182072', '234764', '183672', '254337', '183713', '432559', '247332', '256135', '182864', '183517', '256803', '571299', '256079', '242821', '183283', '183853', '181550', '182422', '871254', '1497387', '172165', '876840', '172246', '1074542', '991591', '182647', '559607', '956413', '247168', '233831', '182329', '183587', '183111', '826040', '1540924', '182542', '254609', '182425', '257115', '788902', '444872', '252092', '181880', '684464', '183993', '856643', '1515850', '1032142', '1080105', '931322', '183711', '880788', '181942', '254598', '446892', '631657', '954731', '1496087', '172265', '1069017', '251362', '181801', '881078', '1521082', '181733', '815063', '604545', '183450', '676382', '563998', '1500213', '182294', '991188', '182016', '183640', '877061', '820479', '182890', '183008', '876882', '242070', '691301', '255858', '255064', '1534224', '1549674', '951329', '943037', '182732', '256218', '182963', '182051', '238211', '253540', '1013118', '250998', '616137', '255402', '435311', '182455', '183801', '1531384', '947333', '253740', '1474164', '333635', '301011', '244776', '239952', '279211', '253438', '183971', '814552', '233795', '1040470', '336650', '255609', '183440', '1551587', '242688', '256564', '253155', '183973', '860531', '253972', '182874', '799665', '857162', '850585', '254879', '253246', '621369', '256974', '1508211', '183068', '1528522', '183399', '621361', '1562904', '620475', '1538678', '183922', '181599', '1072028', '857911', '1531183', '182414', '1542754', '643674', '254933', '254031', '1075518', '182663', '787057', '1563495', '1506576', '181620', '181557', '429943', '444174', '253807', '1076490', '249012', '691094', '839073', '582309', '234913', '375230', '1022097', '254516', '310431', '432626', '869485', '577748', '1525654', '952113', '1023275', '990883', '183544', '183494', '1072244', '608505', '251647', '1073161', '254022', '182895', '1046380', '183754', '254475', '248858', '182357', '182775', '181699', '254481', '1538083', '256545', '172386', '183595', '929478', '182454', '248861', '181835', '233200', '628279', '948055', '183685', '1494805', '832371', '253190', '249025', '609050', '327768', '182210', '182569', '408993', '663174', '182576', '1542201', '255056', '363452', '183669', '607392', '240082', '183651', '172277', '182616', '1547003', '595431', '779880', '774503', '254950', '862814', '234879', '253355', '644177', '256679', '562006', '182417', '310467', '852453', '182503', '664528', '183397', '860427', '366818', '276793', '253923', '182415', '255901', '256432', '931195', '183285', '1519755', '1443618', '172276', '172210', '257109', '1174052', '1554913', '857839', '1531499', '619445', '181737', '607391', '172220', '684565', '182571', '172406', '654517', '182002', '183359', '253154', '325793', '182760', '183193', '685092', '183649', '369119', '254648', '591500', '1555604', '613958', '373114', '1005113', '399157', '172453', '1506905', '172136', '420057', '183523', '256248', '253470', '342333', '182337', '182130', '658872', '183457', '182050', '236252', '253869', '560429', '618695', '182646', '1525568', '613131', '1079596', '252823', '241178', '590795', '183232', '251179', '172302', '1534434', '181805', '432691', '255945', '256041', '1064781', '663044', '1072227', '252084', '184000', '183677', '183560', '1528825', '606449', '256846', '438377', '172422', '662808', '182971', '286695', '253633', '183480', '448439', '249174', '254169', '279256', '404643', '942814', '183094', '238276', '1537618', '182831', '1081262', '255689', '1562982', '239792', '1501441', '1535910', '250977', '182367', '182475', '1549662', '1508266', '1040734', '666993', '257102', '1059261', '236303', '651172', '252268', '1505672', '254394', '1456644', '182128', '256473', '1522165', '183026', '683401', '251848', '620050', '257130', '183335', '183256', '181794', '183429', '172305', '1555420', '932942', '182618', '781312', '1548852', '182504', '1545919', '334583', '182574', '681245', '181623', '183743', '249228', '853487', '1046556', '181540', '183506', '676597', '233223', '234768', '271581', '251486', '172189', '1535240', '172319', '252406', '1534556', '256984', '182277', '644191', '382571', '944723', '181993', '1062950', '182731', '183856', '698196', '183126', '182697', '435299', '1442188', '425384', '182315', '1091979', '419485', '269899', '253960', '345690', '867041', '181775', '253857', '1472537', '279228', '181961', '252700', '684031', '183950', '233808', '1547354', '182017', '1553477', '183724', '182099', '181605', '879120', '252463', '1529211', '1055138', '432754', '183500', '409456', '182106', '253754', '236343', '183873', '182898', '172476', '236360', '248571', '255031', '932706', '256076', '182097', '254802', '239903', '1568176', '235743', '255050', '183891', '1541968', '600050', '292442', '646025', '234718', '236118', '590630', '182312', '1535472', '256484', '172215', '1498719', '947951', '181774', '334695', '659693', '1076274', '648065', '439277', '435015', '1555146', '182744', '271578', '397630', '333484', '182236', '255194', '327007', '1080670', '235867', '869389', '881666', '285520', '242312', '1543202', '1563473', '1513573', '182001', '269209', '1560988', '941723', '406572', '1040730', '429539', '845834', '855731', '1076065', '439636', '183298', '181717', '183864', '182071', '1511828', '564834', '182904', '1558427', '948343', '244632', '877489', '237244', '435395', '182834', '251117', '769511', '1076319', '842950', '301043', '416077', '833513', '183461', '1083601', '577043', '876969', '243060', '233824', '614766', '181624', '1519959', '867819', '1039769', '254695', '616501', '606676', '278110', '1534150', '1554133', '443885', '390527', '631725', '183423', '182086', '172176', '1451692', '442920', '181632', '1523952', '364428', '237377', '1550570', '172447', '310176', '244561', '1396035', '1541297', '1515606', '617318', '182751', '949083', '310370', '1539969', '1540565', '664471', '181903', '1524189', '251677', '255582', '181602', '576257', '256767', '172462', '181551', '181856', '184003', '184008', '183196', '234890', '241926', '1523157', '242129', '236333', '1538509', '254504', '243219', '256216', '366688', '241917', '658075', '254612', '233922', '659002', '624859', '183418', '621936', '595410', '359091', '294621', '1040917', '677300', '1013113', '933607', '250240', '1537023', '1499094', '882526', '1501538', '183697', '242950', '338344', '254901', '256712', '183732', '1080453', '1066384', '1069293', '1530108', '254774', '333530', '359865', '183619', '844633', '183123', '249083', '628791', '172764', '691366', '183287', '241902', '238079', '373707', '255671', '848428', '182482', '841120', '243155', '611166', '183803', '255573', '181911', '445130', '1494184', '252085', '842384', '782670', '420507', '590625', '1083424', '251411', '1472420', '698850', '183896', '1524187', '579172', '240046', '951092', '1076398', '252491', '449628', '879188', '859052', '242612', '183251', '662332', '249222', '256859', '1501401', '406605', '844911', '1528127', '234805', '238321', '255878', '1495665', '869988', '183686', '182265', '183691', '265868', '253943', '172260', '251097', '248485', '235884', '251644', '182826', '607408', '781179', '641055', '181881', '172441', '845257', '1561184', '1540955', '556905', '183160', '1515589', '252517', '254339', '259096', '616951', '310185', '233778', '254150', '236177', '255435', '344859', '172374', '253766', '615113', '246923', '182714', '248321', '183996', '845627', '359301', '287245', '390505', '1472322', '1544035', '621649', '1023380', '1542182', '840275', '172472', '172257', '254058', '182124', '252646', '184007', '1562195', '183684', '183488', '300891', '251657', '334649', '397618', '879237', '1511812', '252532', '1537162', '425594', '255525', '776281', '797115', '254064', '182545', '182491', '1537714', '236328', '172344', '238109', '600533', '954237', '636885', '172156', '931590', '172138', '252944', '1077304', '254896', '181745', '172360', '181917', '337135', '951259', '278101', '1076045', '234719', '435113', '183789', '301045', '254963', '254433', '253638', '251742', '234872', '249113', '253725', '264986', '181586', '276846', '1515603', '233846', '182366', '373667', '585840', '415581', '181806', '437052', '182279', '181748', '1536457', '779059', '565181', '835950', '365982', '182261', '820142', '606461', '240015', '182195', '256101', '244043', '172421', '183612', '306050', '839729', '255313', '270083', '172259', '1068002', '397719', '1046893', '663719', '256137', '623725', '1506609', '181969', '256963', '667956', '1472392', '183628', '233214', '183895', '406388', '345582', '947072', '433108', '424114', '248293', '881772', '182257', '656712', '256171', '432727', '1549952', '182466', '1173943', '947432', '364381', '1058558', '1539410', '860265', '249748', '181998', '172275', '233104', '855671', '244725', '1031842', '375591', '676241', '619457', '944430', '673959', '1070885', '249022', '600749', '1500754', '608131', '616954', '252253', '600687', '575269', '590577', '1076862', '848255', '172430', '400667', '183805', '182911', '1076030', '652983', '253980', '1430651', '641140', '182547', '233835', '182211', '1031861', '242300', '238243', '254960', '181568', '183961', '741993', '381467', '181552', '183808', '182333', '183681', '255655', '585778', '1553642', '182847', '182314', '1524967', '240074', '837680', '1442204', '394697', '183162', '182104', '182934', '579096', '236299', '181763', '621639', '842227', '255234', '1556896', '183883', '244197', '183916', '255845', '184006', '1550383', '183275', '272475', '598993', '562098', '1556614', '255711', '1083017', '183974', '1500841', '1023063', '183452', '244780', '1535542', '1003298', '409086', '446875', '256004', '869984', '183150', '644220', '400817', '947367', '1503529', '880812', '255998', '183369', '253997', '172356', '255091', '230912', '182650', '293984', '783325', '663830', '386716', '943312', '254274', '1557729', '293137', '254821', '1071752', '287329', '254588', '594367', '172493', '253811', '256400', '246953', '607373', '181630', '183410', '252996', '182470', '1077240', '1522725', '364040', '252834', '242551', '229804', '334395', '183210', '1068656', '172385', '802437', '182670', '1557191', '1069895', '183013', '182216', '276802', '270144', '784416', '594177', '182930', '182758', '419702', '182433', '182173', '254980', '240058', '254723', '1072430', '776813', '172178', '255422', '1072317', '237562', '591502', '181701', '256014', '1456616', '941889', '252699', '1063961', '255485', '1549883', '430594', '1474113', '253882', '850873', '256206', '1195377', '172224', '1439169', '182354', '253313', '1529843', '941798', '850871', '255527', '172247', '182379', '183823', '252307', '183138', '400808', '1549837', '787933', '560317', '306530', '254364', '248460', '253421', '585750', '863901', '256569', '621358', '866731', '253046', '181769', '1065911', '1501352', '1076745', '183170', '1547224', '183185', '233866', '595693', '432663', '808782', '241176', '256083', '183530', '778595', '183233', '183816', '953179', '867043', '1542361', '388987', '1556658', '1496535', '1457226', '181614', '233830', '380785', '254819', '182685', '256207', '1555311', '1561287', '616904', '406620', '882525', '239868', '181718', '353485', '183735', '252205', '183050', '233899', '404638', '248302', '255553', '867400', '233806', '255837', '183345', '1562183', '1159814', '576225', '801813', '182672', '255024', '234747', '184002', '292247', '238385', '182550', '860227', '250630', '849562', '256905', '181685', '839734', '247436', '1046385', '1229762', '232993', '254582', '659198', '238129', '183438', '182332', '183926', '814458', '585654', '255944', '412764', '848446', '181650', '1046389', '254281', '566073', '183642', '182999', '577977', '181675', '683655', '1554252', '255298', '172303', '1005161', '248413', '300971', '327044', '950514', '183569', '1072518', '913815', '251522', '588528', '181618', '989201', '446686', '386593', '182521', '251367', '237296', '254293', '446854', '253424', '252822', '1080983', '253974', '183497', '1075430', '255581', '871998', '1018718', '172142', '1064567', '674471', '1525090', '183892', '182980', '592184', '257501', '302042', '259136', '913743', '250968', '306536', '585393', '172446', '250996', '409125', '236164', '1494737', '310184', '182810', '183703', '247309', '1522078', '1550747', '183470', '246929', '292244', '306053', '254125', '424032', '182479', '255079', '182924', '848443', '1562542', '182952', '651234', '1081688', '608272', '183602', '1022914', '580969', '578727', '183548', '172298', '429782', '288955', '229814', '255516', '254761', '181789', '1548658', '183535', '1046320', '1441582', '306534', '172347', '1536954', '234782', '182324', '380007', '256819', '1550345', '557263', '446343', '431969', '565762', '181553', '658597', '1076053', '255436', '1555172', '182472', '182182', '947991', '386881', '182092', '233856', '1022903', '253392', '253786', '172438', '1553599', '868003', '183519', '932841', '288994', '254376', '1536807', '254396', '182516', '182669', '235908', '172349', '591381', '1557806', '386885', '251892', '447723', '172232', '697440', '1529089', '270669', '1064275', '254679', '241188', '1074539', '421976', '1540755', '839448', '1516932', '182169', '255408', '251406', '1072557', '586796', '559898', '183057', '183426', '652958', '1540743', '172163', '182626', '233247', '235812', '1515770', '236295', '235715', '953343', '172162', '447620', '235840', '183567', '807380', '1508027', '956419', '183582', '802061', '577357', '256543', '256677', '183147', '1073045', '867995', '233765', '1064369', '769518', '1492690', '781040', '256289', '181638', '1512165', '599759', '183629', '1430794', '183817', '172150', '250814', '618646', '1079046', '182749', '256933', '254977', '1430517', '1524964', '609105', '623840', '183385', '1555659', '172266', '631805', '236934', '172397', '652315', '183459', '256120', '451307', '1040441', '181754', '253215', '183886', '182789', '1005283', '254547', '653000', '183948', '235776', '306528', '238346', '242690', '364229', '860960', '182587', '857452', '181637', '242180', '1530935', '235689', '784821', '300460', '233783', '248839', '774195', '1055597', '382933', '182875', '837376', '599657', '237225', '363298', '585387', '240076', '439243', '698918', '1553638', '172213', '251216', '242827', '1077208', '183759', '1074535', '853805', '388962', '1542588', '785826', '580317', '255809', '572605', '182121', '183591', '428773', '233252', '255649', '183949', '832704', '254572', '252869', '1550731', '608996', '1510651', '586862', '1536330', '234791', '590956', '257553', '182851', '256202', '823507', '254591', '1556506', '181905', '1539720', '1039551', '598288', '1540476', '254548', '254535', '866555', '182402', '859209', '236294', '1541316', '950741', '237344', '182566', '955590', '255057', '613928', '254828', '172254', '382962', '242321', '301028', '259140', '429338', '913987', '257117', '256674', '254781', '235824', '182593', '254910', '404127', '248463', '1064981', '183955', '182469', '824667', '251394', '1062735', '256851', '183462', '1030793', '182824', '242527', '1535832', '638816', '182105', '1496808', '233248', '933292', '1066165', '183862', '369197', '235848', '651094', '256815', '172240', '256481', '428922', '183893', '248876', '656430', '172230', '676664', '1553636', '610047', '431808', '238132', '783674', '305837', '183730', '845485', '238199', '823308', '853627', '876240', '811528', '788549', '1493869', '183899', '182811', '254148', '182484', '172433', '253868', '252723', '364415', '442500', '182488', '415715', '182296', '242220', '183839', '253199', '430027', '172463', '1521118', '182828', '236144', '182471', '557794', '1502562', '1072827', '860097', '181839', '248780', '435118', '254098', '932888', '182554', '255162', '233900', '250634', '1074560', '342121', '254201', '254430', '254163', '310470', '1070903', '577413', '1535814', '1524163', '862824', '234788', '1058177', '228359', '182526', '1066829', '1557793', '183712', '882501', '400801', '182625', '182972', '1536381', '587937', '1513308', '1539226', '929179', '183496', '253905', '254652', '1520901', '690568', '1518920', '254663', '183355', '1536464', '181579', '183658', '1023385', '613940', '293289', '449034', '183941', '183015', '1529824', '1493692', '867734', '183959', '252001', '1497707', '181581', '253822', '182342', '256368', '244839', '255407', '800303', '1492948', '1519806', '386764', '301003', '777245', '1495384', '1520583', '183770', '182192', '446379', '948568', '256444', '345236', '931080', '1032122', '1074533', '183299', '253823', '254375', '254220', '842902', '617699', '183779', '183404', '183880', '1529952', '1443584', '1079343', '443751', '252591', '847175', '839444', '386718', '1512837', '832822', '182453', '255252', '667778', '234725', '277966', '300990', '1543391', '254697', '182920', '697388', '251893', '183012', '243131', '585386', '183769', '240083', '1509161', '182761', '1539067', '1076822', '645133', '329572', '1506947', '255378', '256812', '943036', '433916', '182522', '255242', '663447', '1067442', '237369', '255348', '235829', '172118', '182073', '183613', '638740', '559543', '183396', '420457', '839487', '950581', '181918', '181695', '182641', '244709', '172478', '183660', '612052', '183985', '253932', '1549208', '257135', '183998', '256351', '569862', '1083458', '250345', '183829', '183904', '948784', '242778', '929642', '786129', '183320', '300888', '388723', '254003', '183706', '183509', '862200', '229101', '251898', '183019', '676590', '255673', '183077', '172211', '618067', '374201', '373005', '182640', '659676', '278039', '182483', '253411', '423446', '1549294', '1073156', '256667', '1067929', '237290', '412551', '271641', '256555', '254772', '1076044', '182432', '253890', '254362', '1065838', '253929', '775912', '250447', '1535032', '660076', '182085', '663502', '1066628', '1534672', '181578', '183835', '361542', '1537554', '172166', '1472448', '183034', '440703', '1539908', '244846', '235856', '182927', '1550886', '182639', '182427', '419888', '1518169', '359018', '252629', '181848', '183415', '1499217', '181753', '182266', '238085', '183665', '950381', '183143', '615203', '951372', '588666', '255593', '256157', '865851', '245693', '825909', '1073159', '172479', '608279', '183942', '280736', '183630', '183056', '1540229', '668393', '238363', '182993', '256622', '663918', '344783', '1550305', '571238', '777280', '1069372', '1174269', '183625', '234811', '598546', '253854', '183011', '237497', '257034', '856686', '816451', '875626', '182846', '1543514', '181625', '182926', '254754', '1473852', '172207', '256727', '594114', '243222', '251526', '182463', '990568', '870537', '556877', '183879', '611388', '181714', '183624', '598796', '182281', '256792', '256503', '1549608', '649673', '867978', '399272', '1554546', '252721', '181967', '252703', '276883', '800871', '182604', '255061', '183264', '616953', '183060', '252227', '845986', '424602', '183751', '1563758', '636824', '250388', '842359', '181705', '183061', '630742', '869340', '172288', '1540963', '253971', '667925', '183889', '183719', '1443600', '255604', '236774', '447917', '857240', '182555', '842230', '1544922', '181648', '1063000', '1528982', '444295', '183907', '870153', '235880', '913740', '439228', '241189', '353577', '182863', '1553632', '1558150', '182845', '172287', '444751', '172426', '237239', '255304', '1514930', '181960', '433149', '182532', '249028', '1562969', '397625', '254450', '1522091', '255550', '1507122', '435284', '257089', '183508', '182638', '840736', '643079', '183620', '1022915', '1066237', '183206', '182713', '784989', '182388', '182853', '594187', '256508', '1031262', '580279', '598518', '1077680', '183343', '1521380', '255720', '257066', '1535844', '244843', '249011', '664037', '181959', '256092', '255911', '236243', '183289', '1069823', '1519546', '586781', '182909', '182139', '447782', '238282', '306092', '359694', '800976', '235397', '870726', '644126', '254103', '233843', '256772', '863233', '183550', '253891', '183748', '183795', '653631', '1561932', '1515699', '182592', '183776', '256224', '255213', '181676', '1537613', '949454', '254001', '293048', '1529774', '255104', '172146', '182339', '860676', '420083', '182065', '256506', '1004508', '306513', '183288', '238220', '1536410', '259160', '183259', '419534', '876817', '1523932', '183963', '950476', '279085', '802560', '950415', '1075335', '172179', '172152', '1513928', '300986', '253114', '239848', '181782', '234895', '951080', '431680', '1533099', '292426', '439573', '1023281', '254593', '172293', '250037', '857765', '255415', '255824', '786216', '183140', '586450', '181729', '438400', '287406', '183105', '182381', '182456', '844679', '183293', '444593', '638428', '244751', '183991', '865816', '847882', '172134', '364002', '1174785', '253931', '251387', '237381', '607240', '182031', '778128', '780994', '249309', '670784', '604510', '172473', '425411', '881196', '244599', '878579', '255450', '1497442', '428683', '254571', '254026', '244686', '183741', '182614', '254637', '361549', '780966', '257054', '182765', '181667', '244592', '252603', '182514', '183557', '251073', '1030893', '183558', '434016', '183946', '373029', '1541139', '788093', '595816', '237200', '252082', '256775', '697870', '249855', '244608', '182023', '182035', '172366', '691760', '172343', '400687', '865786', '182776', '1011468', '440503', '600515', '254936', '857446', '1534348', '1562335', '182082', '183304', '862739', '181871', '172352', '183537', '1561168', '374762', '256978', '1535544', '183036', '787281', '672836', '236279', '594193', '182030', '181674', '183063', '183216', '780943', '439195', '244693', '860746', '251229', '374151', '1553339', '445864', '183568', '239961', '183576', '243199', '855760', '254671', '183656', '182340', '172394', '564125', '244771', '255544', '820011', '1519314', '664654', '344883', '446253', '253640', '254147', '182089', '183782', '358941', '440881', '690308', '855409', '183937', '1030937', '833956', '1497391', '250121', '236319', '255678', '375515', '234736', '181554', '1522341', '182150', '639493', '594812', '251325', '780891', '234848', '256985', '850313', '559865', '181854', '1055596', '183439', '1039872', '182110', '182975', '867484', '183407', '172358', '256316', '254929', '249321', '248283', '1498209', '852219', '591497', '272502', '183799', '242602', '400779', '254425', '444590', '183972', '181688', '779210', '182163', '799653', '866225', '238218', '580384', '445180', '172294', '254991', '1067307', '867803', '256996', '183646', '451958', '338727', '1540329', '172214', '172314', '1493689', '1533058', '183910', '1076055', '181791', '183086', '183796', '1012355', '1547128', '301048', '1553568', '647041', '778142', '237202', '183894', '172483', '306511', '255396', '252018', '664439', '183370', '234916', '172451', '1054682', '254826', '255619', '948240', '857027', '172190', '835020', '182096', '269259', '636788', '832573', '238082', '254383', '650226', '1472347', '1542571', '255640', '432788', '251728', '815460', '183980', '251880', '591290', '682697', '182440', '1540711', '265870', '263182', '424546', '439643', '435167', '255615', '183675', '254730', '595980', '587605', '436970', '254678', '863236', '1076920', '780975', '182125', '1064448', '233758', '254823', '183376', '784726', '181824', '1562560', '872404', '1568311', '255429', '182965', '1065662', '183492', '1064630', '1046462', '182720', '183663', '183005', '253968', '254624', '1528242', '254178', '183797', '250031', '591493', '181840', '423659', '607380', '1494618', '1069558', '1003049', '254816', '1070923', '1497181', '381426', '839362', '424617', '256883', '245624', '1075852', '250731', '183002', '1525796', '255324', '1553563', '1538140', '677824', '288952', '182191', '254691', '248850', '183888', '236265', '255990', '182334', '841457', '630185', '183742', '244808', '182102', '950265', '238118', '172151', '586362', '253818', '623127', '182781', '182850', '239932', '172219', '255628', '172226', '880845', '665585', '862762', '182138', '1527180', '1063835', '1063747', '255384', '616458', '181868', '242377', '254705', '183820', '873960', '255023', '255856', '1059756', '382569', '182146', '181924', '1073881', '346053', '181823', '181799', '255579', '254685', '181987', '592161', '306544', '390462', '256072', '856673', '858474', '854084', '181654', '811541', '1510724', '253864', '181755', '234793', '182076', '1030779', '254533', '857749', '183921', '255025', '237285', '442613', '183868', '436254', '820609', '1005521', '433249', '1541361', '256272', '564621', '879239', '451995', '277949', '183176', '244008', '181833', '183236', '1533838', '649863', '243217', '559269', '1562570', '1430641', '183994', '1510229', '1195327', '1054343', '862976', '172192', '586306', '359853', '181569', '801200', '256179', '1539501', '181937', '556758', '182214', '182134', '237309', '182879', '591423', '256170', '943330', '375541', '1529411', '182987', '181682', '254381', '183821', '181982', '253158', '183990', '943092', '618152', '325802', '184005', '251573', '244692', '243028', '1071910', '437028', '331839', '182088', '431895', '238223', '816658', '182437', '183124', '235761', '182998', '248539', '1523707', '256031', '955626', '264894', '276797', '557118', '182384', '611452', '182644', '1076829', '181815', '182198', '253989', '1555795', '1517811', '181758', '276792', '183371', '252155', '622469', '881859', '234862', '1003734', '278074', '1546455', '254499', '172281', '860953', '1031142', '181935', '1039350', '879310', '183578', '248918', '1563101', '439758', '279251', '182937', '1534908', '254822', '182552', '1081111', '253292', '172186', '667122', '326972', '1472514', '396283', '879573', '183464', '172355', '302142', '1515827', '251680', '1549230', '255420', '1530301', '256786', '182428', '255112', '851412', '254115', '255554', '183337', '253697', '1568699', '1533160', '183471', '655255', '182943', '172193', '250448', '293128', '417681', '436203', '989754', '674650', '251955', '1443205', '252715', '364039', '254840', '253481', '183687', '236207', '256571', '254460', '182575', '182677', '1537192', '1063825', '238277', '253806', '1504019', '1083119', '1001138', '841496', '381404', '256524', '391783', '182883', '182449', '234888', '1493592', '181629', '557462', '181978', '930748', '256838', '183552', '256036', '607390', '181826', '245673', '253324', '244559', '182344', '233199', '182232', '1066746', '413448', '235406', '1081115', '565198', '942428', '345719', '242184', '256664', '172184', '588756', '183689', '237334', '183312', '802521', '181895', '255647', '1072914', '586281', '1520251', '182178', '611868', '325912', '256322', '254322', '183815', '951750', '443884', '429287', '172128', '255798', '238389', '183520', '183913', '1504774', '182007', '1017591', '251596', '397789', '254198', '869102', '181702', '249256', '251694', '243245', '400760', '172346', '182649', '181950', '182347', '607382', '1520020', '252472', '233154', '253665', '600469', '183699', '183607', '781037', '1529955', '183405', '254894', '183863', '951275', '1562529', '251428', '614112', '382664', '1561567', '254926', '406632', '379622', '1563368', '182292', '1561335', '1072249', '255630', '254669', '379109', '183594', '253893', '232999', '255067', '172309', '1519699', '1498449', '430062', '181684', '238297', '256668', '254519', '1539068', '588576', '276773', '842476', '238088', '254961', '252338', '269160', '1507538', '249665', '400833', '1018252', '620034', '406490', '1023054', '183145', '956522', '255448', '1557002', '345829', '989153', '1524331', '404712', '430557', '444888', '182418', '183830', '418396', '183740', '253887', '645732', '256523', '851875', '183720', '182915', '415516', '240134', '839720', '882064', '183818', '817292', '172408', '181973', '419532', '1506692', '253820', '586822', '181721', '597782', '172115', '172255', '1555082', '255917', '1527549', '859047', '989431', '245662', '1538786', '244784', '253523', '399251', '251402', '359873', '271547', '254253', '181657', '254656', '182617', '256358', '1054164', '254033', '659769', '952708', '652130', '183030', '1493615', '1560459', '798122', '580295', '256658', '786971', '183616', '932957', '172268', '824983', '424540', '604533', '769384', '1526360', '376556', '1515598', '837085', '234901', '183554', '181804', '256307', '172362', '444345', '641711', '251786', '234856', '1544028', '1560629', '256099', '1443291', '254350', '1076509', '677345', '1508636', '1066137', '602138', '234760', '1511626', '1530365', '783559', '172131', '306098', '181843', '229817', '855982', '181726', '1498495', '183728', '416820', '233836', '334490', '172157', '248681', '1558106', '1430365', '182900', '182766', '1541738', '1549880', '929501', '556865', '342051', '249255', '255498', '181725', '172326', '181621', '872157', '1568572', '182723', '182837', '848395', '1561202', '283961', '690598', '1539941', '183774', '635971', '881297', '583575', '252514', '1523489', '404676', '1083571', '183350', '248626', '254482', '1555310', '183262', '254040', '304016', '400822', '801118', '879419', '841418', '1538007', '438746', '252111', '238238', '442532', '825949', '172141', '629296', '1538130', '172335', '243260', '1562228', '182763', '183843', '1168489', '254009', '1530562', '849178', '613884', '1080543', '784857', '256499', '1075885', '559220', '815831', '359841', '777780', '234720', '183645', '256066', '183737', '945280', '181802', '1542964', '1493837', '1528726', '183518', '288965', '839693', '842437', '255266', '182793', '253225', '429862', '248281', '667301', '1549249', '835628', '1081006', '238316', '813641', '565761', '182740', '182884', '1535589', '253203', '420558', '663440', '284545', '237258', '842651', '389159', '183046', '1443176', '254941', '182059', '182825', '769206', '1072826', '1068777', '1556602', '233191', '183920', '1398266', '697739', '251666', '342066', '594370', '182053', '250229', '1531519', '183372', '294561', '183466', '1443521', '255826', '183252', '255098', '181719', '1556574', '591471', '377023', '182077', '853909', '234743', '1499602', '856220', '256683', '182508', '234825', '255802', '236264', '389064', '1544079', '249910', '419560', '255379', '1498256', '182772', '839755', '623093', '1076051', '235942', '424773', '640317', '183957', '1561886', '172436', '1561370', '676105', '954069', '445226', '183841', '858988', '668990', '847680', '1540217', '183490', '1553628', '181882', '1495166', '949840', '442655', '366815', '172200', '182093', '181635', '801728', '800843', '183031', '172339', '182586', '666639', '182651', '423400', '284544', '869007', '181943', '359556', '1562660', '172296', '598789', '181589', '181922', '247212', '183297', '183679', '588003', '1500318', '302041', '404592', '183641', '256579', '1077880', '842680', '183479', '250019', '1066649', '879339', '345668', '183491', '881950', '255002', '585791', '439258', '1069380', '181909', '253955', '856153', '602092', '183229', '239970', '1527806', '420111', '1556017', '235754', '440590', '882522', '565193', '255282', '560907', '242640', '1509314', '253504', '181555', '182144', '381433', '338763', '930354', '249965', '1074654', '243125', '183533', '233889', '877074', '742026', '447687', '1553518', '769421', '250021', '183467', '256230', '953639', '254071', '255537', '182704', '566070', '651082', '950550', '172169', '234742', '617755', '851286', '238107', '182081', '1080484', '1537960', '254078', '1074681', '255578', '622002', '1472351', '181783', '181658', '183059', '233790', '1013253', '181549', '256217', '181915', '1474224', '436369', '255789', '182561', '254065', '182538', '424025', '182209', '1065565', '234730', '172367', '255063', '417756', '1457263', '252797', '254711', '659825', '183190', '807813', '230913', '817297', '182852', '182688', '183878', '579902', '182558', '585741', '233232', '990583', '244716', '843278', '238182', '443726', '690523', '1005152', '865207', '183453', '183319', '183250', '609505', '1492753', '588569', '254951', '849863', '233820', '610846', '237315', '591490', '874018', '254764', '234773', '587493', '839021', '172133', '1523485', '1540200', '254123', '586963', '654671', '233216', '1502484', '182607', '869805', '182730', '256435', '233920', '590818', '234784', '182165', '429778', '820595', '325787', '255941', '172144', '241922', '445246', '379108', '955533', '181770', '256492', '572500', '256547', '882366', '1077695', '930894', '172218', '372724', '183513', '183860', '563929', '811522', '172221', '412513', '181723', '172279', '256562', '172387', '251248', '237354', '1538067', '172474', '252337', '415890', '255391', '249761', '1553610', '181720', '182871', '1496009', '328477', '621767', '181779', '643062', '182406', '256138', '251726', '252392', '252552', '442747', '270570', '852598', '783581', '182476', '182129', '643984', '390443', '1538881', '249998', '861453', '697786', '238122', '255123', '642672', '248260', '183416', '256123', '677585', '252175', '182866', '1568309', '237504', '1075875', '373481', '183419', '172251', '389011', '698278', '1563628', '1533654', '1553609', '242283', '1494388', '253915', '255227', '1545051', '562728', '237234', '1069693', '801201', '848875', '353399', '310463', '1063086', '1518507', '257106', '244777', '653083', '181927', '1561711', '172206', '181647', '1539924', '255220', '583490', '1528975', '1529930', '362867', '949681', '182596', '183571', '256714', '740171', '278112', '1512178', '1054329', '1075961', '172204', '334690', '181800', '836838', '690705', '182245', '1556922', '855878', '181594', '799160', '852462', '433284', '1496361', '326239', '182275', '181991', '255443', '624743', '1568393', '183352', '182450', '867434', '1543869', '375520', '249692', '1457256', '1067905', '1544641', '1508566', '397754', '172409', '440849', '1031137', '243093', '250687', '595345', '254539', '1529110', '1558168', '237329', '439753', '182683', '244789', '182862', '256966', '1040678', '254731', '182156', '294603', '242911', '252302', '182058', '780940', '183322', '1533214', '256035', '1068587', '1497451', '183772', '182841', '233802', '1529973', '862918', '1560398', '597710', '1076775', '250751', '818817', '341081', '1494806', '1078756', '233218', '585799', '181672', '588670', '181697', '359435', '181764', '172348', '256915', '256864', '586465', '1071738', '836954', '240051', '643965', '556862', '443760', '785746', '1513431', '1561379', '182229', '1557977', '664488', '251541', '244775', '1537605', '181722', '253673', '333496', '256825', '183542', '945941', '1003536', '182869', '181612', '237250', '845233', '1505046', '256706', '796646', '575223', '256020', '1537612', '847773', '256109', '1539373', '1512184', '183323', '564464', '181873', '183209', '855708', '1494171', '182520', '181643', '255248', '254134', '295305', '1004105', '252343', '1555633', '253274', '183168', '182355', '243130', '182600', '415512', '344595', '1064662', '172338', '856196', '181980', '255491', '1076821', '172299', '233769', '604488', '254372', '868012', '844039', '254113', '1536339', '433964', '1092971', '1079377', '822772', '182386', '242315', '1069951', '256276', '250099', '248910', '265831', '183676', '1550587', '245685', '391842', '172383', '181760', '869023', '1496678', '1546565', '1535719', '366848', '1072177', '1516547', '172261', '616416', '172195', '802137', '1067629', '857313', '802136', '858142', '1527544', '182551', '172437', '428628', '587360', '255735', '238395', '781260', '237487', '243275', '172449', '183561', '772463', '1473919', '230907', '183165', '253622', '181822', '1067409', '990119', '252068', '172316', '1550308', '853999', '235748', '1547402', '183598', '876764', '931061', '1076834', '181893', '606570', '249659', '182307', '233177', '242903', '951212', '233861', '255955', '255975', '437067', '252872', '255134', '181906', '1533144', '182559', '1543417', '406601', '255907', '237470', '181640', '172216', '237204', '1546772', '253898', '172484', '1075476', '253958', '253304', '182282', '183021', '814872', '377072', '438111', '1032245', '1553565', '255042', '1511559', '306100', '293309', '254984', '1075529', '945462', '955182', '182849', '880805', '254268', '183794', '248432', '256422', '419568', '379935', '646749', '182848', '423534', '172310', '181778', '256929', '1532499', '1544368', '183041', '576186', '1538503', '181762', '234830', '610867', '1174063', '233815', '234798', '802594', '853634', '233817', '950595', '1504076', '635566', '862813', '251221', '252129', '244683', '182222', '660227', '1524570', '242804', '254610', '251412', '1549947', '359806', '183929', '243203', '1539738', '183610', '242520', '1065128', '257153', '612602', '238221', '241965', '252571', '823842', '375576', '1472576', '184010', '381353', '344806', '867351', '690945', '326715', '255126', '310475', '931147', '172391', '234911', '955208', '572901', '624893', '390438', '810938', '1078950', '447593', '229142', '256464', '1079508', '436201', '183430', '950578', '359357', '183486', '991752', '277438', '859217', '663612', '851687', '420025', '1520862', '172291', '172417', '183881', '255125', '1174571', '628754', '585807', '183999', '400681', '834913', '839725', '849495', '183175', '662293', '182112', '439666', '860206', '1498288', '956523', '1562181', '1472823', '362894', '300967', '248894', '251484', '449874', '248313', '254600', '254732', '673815', '1473460', '181631', '254972', '254008', '1088744', '1519805', '1514902', '359726', '256610', '172767', '601147', '247392', '250347', '657245', '238137', '251764', '183716', '853711', '256320', '278094', '247408', '879777', '590893', '1541028', '403954', '182752', '254385', '447350', '183018', '183668', '815057', '235799', '373153', '254075', '800937', '578230', '172201', '182037', '181820', '345779', '255982', '618777', '379110', '847181', '252118', '564196', '249305', '590478', '1523443', '1494136', '255331', '256094', '172456', '667068', '1004751', '183940', '183787', '172161', '182821', '866159', '606470', '172119', '183485', '408546', '254908', '835741', '366692', '989846', '182717', '1549299', '254916', '234716', '172471', '344813', '181598', '1077047', '1063642', '183885', '183734', '1065956', '182694', '1456549', '564840', '183584', '633898', '256575', '255352', '256105', '436290', '253280', '953642', '182434', '248795', '788676', '254189', '276769', '181593', '253690', '285579', '1547450', '365226', '183177', '447930', '254179', '379518', '860875', '930512', '1074554', '279189', '1556210', '948161', '842979', '255978', '1070308', '183657', '583510', '254247', '234873', '182805', '183411', '1539522', '172396', '172212', '1547241', '182149', '182562', '181878', '254438', '255316', '238207', '409413', '816737', '1556208', '182655', '396259', '585899', '182066', '181785', '248680', '636604', '182147', '253627', '229815', '181886', '172243', '1077689', '1022091', '254212', '419460', '252707', '182507', '182375', '233862', '182118', '182737', '251700', '248872', '239739', '253928', '254302', '183116', '1516924', '583639', '254476', '248268', '366678', '252843', '1508554', '947796', '183219', '183255', '1534992', '933658', '254869', '1538590', '233766', '181703', '1537707', '172159', '255862', '254290', '860917', '172182', '697747', '172301', '674342', '690672', '182383', '1497128', '1529159', '256430', '181864', '183451', '182536', '172329', '183432', '782607', '172300', '251584', '255161', '670498', '182799', '172345', '288990', '616234', '183148', '361552', '254794', '278068', '881124', '429528', '254164', '1510299', '338201', '1070409', '838894', '257083', '172380', '251826', '254589', '579996', '956656', '442509', '172761', '628885', '256548', '1080888', '172253', '432684', '254530', '254542', '881328', '254083', '254262', '256957', '183555', '182711', '381813', '1524914', '182452', '1518514', '181709', '1494776', '255548', '306547', '881860', '172443', '254035', '251091', '337095', '183348', '247390', '1549236', '1546566', '253181', '1069326', '253429', '386430', '253721', '645674', '256082', '381396', '293948', '278004', '248336', '182070', '183182', '620465', '436140', '254900', '181543', '181572', '251771', '182896', '183066', '690599', '251625', '628655', '1063933', '252026', '598725', '237286', '881126', '182813', '183975', '250488', '565890', '373691', '183559', '182804', '1549397', '660226', '594359', '1063730', '436242', '843860', '866596', '254645', '438450', '182005', '254192', '332587', '253542', '1472804', '1077305', '182658', '183100', '396465', '869821', '949922', '1563616', '254753', '256894', '183247', '252014', '564902', '253233', '1563379', '284611', '666778', '254508', '233809', '865092', '254119', '561131', '947178', '253479', '769315', '182368', '1518263', '1529834', '242774', '237569', '429878', '183793', '293297', '652746', '253300', '1555464', '1071507', '254646', '254766', '182725', '182167', '852231', '172333', '444199', '342116', '279266', '172196', '182931', '182218', '254811', '181626', '692539', '412895', '239797', '1063105', '313287', '182533', '183995', '237214', '183989', '1525033', '338192', '255613', '1074277', '325494', '172208', '779105', '172390', '1512784', '396474', '172173', '233757', '856253', '242048', '1553240', '182441', '172361', '779128', '294863', '439069', '253880', '627419', '400750', '594270', '575746', '1562428', '182942', '253990', '951309', '820591', '440410', '1512191', '782775', '181797', '1083610', '415599', '1438635', '256115', '296149', '254887', '1555879', '256551', '1539121', '1512450', '182823', '403916', '1543908', '784328', '254833', '253871', '1504428', '989138', '249000', '364466', '256738', '615336', '1493691', '1543768', '1544711', '234787', '248790', '879421', '182656', '954133', '595701', '859934', '257011', '183428', '182643', '300505', '254580', '182302', '1492147', '183146', '860557', '172242', '255277', '256857', '604549', '1509885', '172475', '341114', '182228', '172398', '183132', '183563', '375627', '183521', '262680', '254336', '183290', '254918', '1529166', '1536471', '1550978', '241939', '1070020', '638077', '865703', '421942', '183166', '1539882', '183865', '256753', '244832', '183391', '182662', '233220', '420261', '606475', '840327', '255561', '1072832', '182982', '233210', '882236', '255049', '820671', '676835', '1503299', '253131', '306520', '239800', '851548', '253472', '364201', '181556', '253616', '628634', '424761', '182739', '254118', '383676', '619084', '182010', '181749', '172145', '276783', '955045', '676567', '1077672', '172292', '929180', '1568686', '293094', '559807', '419467', '564236', '182021', '1081091', '950531', '863374', '254683', '1558425', '832358', '254946', '251847', '594162', '1553635', '256213', '559805', '172188', '181812', '182966', '627492', '691931', '881781', '580356', '586347', '255135', '253883', '1499628', '1083615', '952984', '446887', '584497', '379894', '182696', '233171', '172413', '1062836', '1076823', '1557457', '242137', '576313', '439247', '253936', '244001', '634186', '254649', '247378', '1540669', '613976', '254587', '183725', '1496164', '279084', '429518', '809899', '843082', '233902', '338216', '682331', '344794', '246925', '239875', '559554', '252304', '269118', '182859', '1059801', '1040251', '183951', '253630', '777967', '1069379', '250841', '420094', '181979', '244799', '1558136', '406625', '255726', '840940', '181951', '254751', '256860', '243067', '612061', '433221', '1512795', '183080', '181639', '866627', '310369', '172350', '183456', '631231', '1549460', '183357', '424144', '183738', '265860', '781282', '833559', '172147', '270549', '824994', '1080041', '251883', '954977', '381488', '1538801', '182008', '251718', '1018842', '572607', '442496', '181588', '250265', '1493857', '942495', '183828', '860702', '639544', '811627', '260075', '183572', '181857', '251871', '182843', '255686', '182205', '275561', '660116', '1496037', '769532', '247182', '1568361', '182217', '253266', '690053', '183870', '1032283', '181995', '182902', '1494612', '183205', '253208', '254069', '242189', '1510328', '256062', '256835', '338502', '182046', '172237', '184004', '256212', '183705', '432521', '1472886', '252341', '1457232', '1522954', '1173639', '181739', '779065', '254099', '238206', '741806', '250013', '862573', '181777', '250638', '252697', '855556', '662438', '253848', '853913', '235784', '254518', '244730', '1556611', '255932', '251034', '182674', '254156', '254775', '183710', '172205', '1544492', '1526645', '251798', '431672', '399041', '301008', '1563408', '182221', '235912', '278027', '849033', '836302', '182589', '172125', '172389', '1523410', '256935', '1561698', '361453', '435615', '250384', '1491891', '236280', '181558', '182628', '609357', '674795', '1531475', '181576', '256665', '659980', '1065771', '236123', '302125', '363217', '627774', '853714', '870524', '613028', '234795', '254532', '1539066', '595420', '239964', '256940', '809051', '257127', '413694', '1538396', '254721', '1563429', '172324', '183574', '239830', '252248', '1472323', '238169', '251635', '181678', '182486', '1005608', '1505772', '1529002', '310471', '1492972', '182973', '182400', '183874', '954574', '616828', '863142', '856328', '181818', '301591', '1529945', '817257', '301032', '614711', '375563', '182954', '1473465', '172154', '256047', '1496051', '842140', '183934', '237268', '302044', '375633', '562901', '947973', '826025', '647901', '811328', '280779', '183514', '183702', '172222', '1059916', '182398', '625347', '595828', '242122', '1530313', '1537073', '255972', '600372', '183400', '574591', '244822', '858016', '183301', '1443551', '255916', '255591', '1537004', '1498146', '183659', '362471', '668693', '255515', '182610', '183810', '585823', '447313', '254635', '617399', '172289', '1560389', '1543027', '359108', '1071994', '1523685', '172272', '386507', '182695', '255176', '1088732', '1553553', '438024', '1522562', '608625', '1562822', '233855', '257002', '256746', '254082', '256133', '248191', '182605', '181975', '628606', '250964', '255731', '595364', '1542731', '325902', '1080916', '253066', '424696', '433211', '1550873', '183381', '652063', '852105', '183802', '181693', '955349', '1561973', '181539', '627691', '183249', '1514218', '1005015', '233140', '412826', '881125', '254716', '607384', '248787', '183749', '182856', '183437', '183107', '1556353', '181716', '255592', '172454', '1557756', '182135', '183589', '386427', '243019', '181841', '1550879', '253033', '668643', '1525266', '1023081', '182403', '338646', '181989', '183777', '254334', '233755', '1494643', '182283', '252727', '1046687', '1531738', '1017070', '1070985', '255255', '652367', '1072947', '183527', '869869', '1500231', '251788', '183914', '432004', '1531207', '183317', '845296', '654425', '256723', '255275', '272515', '795802', '821046', '989844', '255752', '183482', '249873', '591521', '651439', '256228', '183409', '377808', '255380', '242018', '233243', '253983', '181561', '591864', '1531496', '436219', '1556294', '1492223', '643529', '1531517', '633736', '254165', '235834', '670793', '255209', '1067484', '249268', '267620', '252139', '779885', '251994', '1071409', '1515486', '1527848', '1031527', '254154', '182252', '611864', '781184', '250823', '388732', '256510', '1505758', '868064', '597783', '183953', '183402', '255326', '660234', '433112', '300995', '1558424', '254023', '1541406', '777540', '254747', '172757', '858428', '252418', '255712', '253695', '182657', '244830', '365316', '845419', '1521130', '181651', '1541976', '243261', '431883', '396370', '183930', '255470', '182615', '406335', '868474', '1069347', '674241', '249210', '257146', '238143', '182317', '674995', '1513315', '943059', '779998', '251444', '254891', '1068769', '250372', '183364', '374804', '243221', '182153', '941812', '1430520', '252114', '1531531', '243224', '1497587', '233190', '820140', '834622', '941880', '412547', '183858', '182041', '243094', '183983', '183117', '255434', '811383', '181595', '654218', '182627', '183857', '447615', '183729', '172423', '866229', '294520', '1562651', '435078', '257015', '233851', '386848', '557301', '183045', '182184', '254041', '424582', '1058609', '251971', '252140', '1519917', '662477', '244763', '932904', '240030', '1512725', '1562555', '234864', '1535362', '1560326', '1529199', '1080450', '250401', '1074678', '1493850', '256718', '951093', '183655', '1554920', '659822', '1501602', '1543247', '1543014', '842863', '244684', '253845', '182497', '183662', '1562692', '1076040', '1512195', '183388', '172269', '182703', '882353', '183244', '254677', '690284', '667475', '1004341', '365208', '769461', '251794', '584409', '256423', '182842', '1511560', '946476', '241136', '1513657', '1064819', '326215', '1500775', '183670', '882411', '236157', '860274', '1031442', '253865', '253189', '823158', '930681', '240081', '257095', '948400', '1558378', '183001', '655894', '182572', '1557672', '811739', '689219', '1547102', '182524', '248528', '1072834', '796113', '1550200', '172194', '172414', '247334', '630054', '1539076', '570001', '182057', '426199', '1068847', '251910', '950602', '182358', '682005', '877463', '181671', '1519457', '245780', '255216', '254107', '879837', '1071129', '650751', '443752', '182019', '1530070', '284479', '172175', '375587', '1441784', '861041', '1538034', '248774', '1531510', '1550496', '854080', '989404', '182040', '182411', '233203', '172317', '183220', '562032', '798124', '1555307', '591422', '172167', '338552', '655891', '248250', '172135', '653052', '1560572', '257031', '639948', '172245', '1535594', '318681', '181767', '1534280', '265224', '253774', '182661', '1550671', '849809', '697697', '879748', '256585', '1441718', '306102', '181596', '585838', '253810', '256063', '182068', '438439', '172295', '842339', '1080726', '237201', '248568', '659883', '182015', '853080', '1539502', '250928', '254625', '685239', '182412', '254938', '338495', '782503', '1542028', '1080378', '181738', '181560', '1530099', '250360', '183246', '1067829', '419537', '1083385', '375584', '242092', '182675', '182423', '183017', '951248', '172217', '617315', '811745', '418503', '1529116', '255432', '787467', '1533778', '691203', '1521964', '432693', '181742', '622734', '1549576', '869576', '1515401', '256271', '182295', '172759', '255919', '183935', '229111', '256097', '433332', '345877', '253950', '416281', '236301', '255675', '1521167', '235749', '1549214', '389067', '244656', '183422', '256081', '1071120', '233894', '949448', '446863', '600384', '256862', '182693', '1538699', '1495904', '556875', '1520760', '1067711', '1503764', '182742', '182951', '255007', '182567', '839404', '882449', '881446', '1553624', '182780', '564577', '600833', '182541', '293314', '379847', '796045', '182976', '249924', '434763', '252722', '253724', '255822', '183048', '183218', '1539694', '353296', '182255', '674681', '183374', '380009', '182603', '181577', '181663', '382626', '682263', '1073214', '338287', '172769', '882260', '613135', '942215', '1073182', '246922', '364076', '181668', '1563312', '242301', '1081266', '780977', '1456623', '1079287', '447610', '256033', '250948', '866214', '1539287', '399184', '254902', '1235505', '254478', '1516937', '244815', '183804', '943482', '1540633', '439208', '1560362', '254332', '933008', '1509845', '241172', '182350', '557112', '338196', '182544', '1505824', '256462', '233229', '1558297', '254931', '772349', '564227', '251550', '235826', '1072600', '233924', '183704', '183965', '1506900', '1066671', '238195', '844316', '182044', '182393', '1539526', '182754', '233930', '254706', '1499736', '564294', '172330', '183635', '1545875', '947666', '287408', '365802', '844930', '627846', '300459', '183690', '1494834', '248264', '632691', '1472809', '869883', '358838', '255279', '682333', '338202', '1563468', '182606', '250614', '674180', '578682', '877346', '1070426', '1498266', '183597', '586824', '243001', '639883', '183636', '249061', '181634', '1067927', '847598', '1540619', '628745', '183263', '344772', '256436', '255492', '1568383', '252107', '256052', '252322', '1499105', '182360', '1520060', '182635', '183271', '1553617', '233887', '172320', '254314', '255699', '795670', '172139', '182168', '841162', '183626', '257525', '182738', '640019', '779198', '941840', '1541924', '393689', '288982', '183596', '183545', '181759', '338532', '1554991', '181851', '1536829', '254263', '254820', '285522', '256870', '1040745', '442651', '1515844', '1498260', '183750', '251678', '1536217', '1530464', '182451', '259221', '1501415', '1561995', '183384', '182778', '172410', '183603', '183539', '256554', '181867', '182157', '1529872', '1058944', '826164', '182244', '279202', '255700', '254351', '448588', '254699', '340995', '377002', '183153', '182660', '438405', '569712', '591312', '183739', '234846', '182026', '825956', '237346', '818841', '1553910', '1543574', '420427', '878700', '254982', '253442', '234867', '251705', '254197', '255117', '952068', '253777', '172168', '612057', '579173', '607372', '172418', '913745', '241934', '1543273', '1494199', '250950', '172357', '235889', '1078723', '255857', '233773', '1512404', '428753', '564929', '172228', '669274', '255657', '237546', '182090', '558255', '345197', '183487', '1568670', '183277', '253579', '181707', '252450', '420105', '945195', '1067027', '439672', '778148', '1018010', '598548', '182506', '254491', '255570', '255211', '1040741', '643520', '383611', '797140', '391713', '181661', '247474', '255742', '233152', '426453', '310214', '844343', '435309', '391867', '837957', '949701', '1503894', '691761', '444796', '1040744', '182177', '183378', '244802', '270523', '869787', '256190', '256726', '182179', '182362', '781306', '181564', '375596', '842468', '681715', '183615', '182207', '181765', '651245', '448165', '1174982', '1525841', '251767', '1553606', '557527', '182563', '252186', '612991', '183809', '183223', '655883', '360689', '182490', '183392', '172332', '182892', '932887', '172256', '310466', '396473', '248458', '647334', '359059', '287373', '443755', '578871', '1499603', '181681', '256716', '660641', '850872', '256907', '1069908', '256496', '172313', '1523943', '233133', '182741', '1546519', '338783', '612454', '300961', '183553', '280773', '254923', '233933', '955236', '841122', '1077847', '682589', '183538', '236273', '602156', '780857', '1508772', '301030', '182870', '233211', '182885', '255107', '818803', '880902', '251780', '1568203', '255471', '1457281', '183966', '182293', '243225', '256488', '948628', '249867', '931129', '182757', '673138', '182684', '835584', '418543', '183377', '581822', '1059469', '415575', '182171', '302109', '235865', '181919', '1555484', '251414', '444951', '182291', '182939', '234887', '842632', '183813', '300957', '932482', '234842', '664465', '1076056', '616921', '183435', '780871', '617362', '1561238', '183570', '1495608', '1498181', '253805', '1524389', '1537012', '254643', '183085', '846295', '698378', '647186', '1062593', '770331', '238117', '608481', '242783', '1541241', '1525407', '1553397', '328440', '1071489', '251907', '183006', '302046', '252708', '587356', '181988', '869833', '270719', '779237', '855663', '1521200', '1546686', '585106', '1537652', '1039804', '182113', '656457', '172197', '183714', '183573', '1537181', '255177', '1536250', '669179', '252212', '240038', '254256', '183837', '183340', '1442757', '1073165', '272428', '183780', '254965', '1070320', '1070389', '182750', '449872', '1553987', '251777', '233821', '386581', '685129', '564087', '181855', '182968', '251908', '302050', '251376', '334816', '386809', '1091577', '1550375', '172402', '182444', '172415', '397674', '284564', '182682', '1443627', '591366', '183167', '254911', '1175019', '182579', '345162', '254947', '363399', '1071373', '280273', '1072432', '172487', '663632', '255738', '932972', '1081450', '172351', '237491', '569944', '866690', '249090', '448762', '399266', '181604', '1065765', '300498', '254655', '872406', '257012', '254885', '243015', '183504', '248826', '429552', '182671', '172327', '591499', '1540364', '563466', '182624', '172382', '254048', '256346', '1562204', '334394', '423756', '860863', '256476', '236350', '237217', '1522530', '583949', '673075', '991252', '254431', '1535524', '256021', '1501354', '251514', '373057', '946366', '183174', '375621', '236124', '183680', '432683', '253134', '246930', '1520042', '1536044', '1545085', '172123', '1054967', '236309', '953036', '818090', '181890', '183477', '1562537', '1535002', '1513674', '181687', '1077820', '406611', '642457', '863283', '255343', '604775', '566124', '1531481', '1081007', '683825', '1541134', '432555', '256155', '943166', '172460', '1538983', '786044', '666206', '1494403', '244697', '438690', '181565', '181828', '237270', '776891', '586409', '446870', '181887', '234744', '386829', '233206', '250263', '879451', '181573', '591375', '951293', '404614', '878345', '605475', '172372', '253991', '172407', '430045', '1538458', '1521940', '255010', '293940', '335463', '1550858', '568583', '780984', '594526', '619853', '181538', '953002', '334676', '439538', '280794', '619392', '932506', '254204', '608177', '1494850', '1563481', '183869', '1561782', '435621', '256067', '243216', '587011', '616806', '772580', '251772', '255206', '1495339', '256596', '860340', '1066991', '869828', '1004159', '783489', '856789', '183184', '1555589', '1031400', '1545024', '255702', '777180', '181694', '809919', '182034', '270020', '172752', '254917', '359472', '1076058', '172481', '182886', '250886', '256604', '183414', '620349', '622407', '824610', '252506', '182910', '181768', '607253', '254831', '1561930', '880930', '420170', '236312', '270623', '698663', '256144', '182816', '256932', '181858', '172271', '616068', '1546774', '255020', '182160', '598728', '255859', '172120', '951356', '325762', '1457210', '256537', '182573', '1071725', '181642', '439261', '181983', '183131', '383590', '255411', '252509', '598504', '660355', '183237', '1535044', '172137', '265249', '345525', '929181', '183666', '182063', '785330', '254084', '779911', '933163', '181958', '1550436', '854046', '1080548', '172174', '1046836', '1550817', '866678', '565128', '406492', '181686', '627818', '621241', '275092', '254190', '1504783', '249153', '235849', '182710', '182087', '878392', '182894', '626093', '250575', '276780', '181877', '172371', '256690', '238292', '1074558', '1539739', '181601', '182529', '600691', '255122', '683643', '338792', '406491', '1557667', '1538564', '1531471', '181692', '183683', '252488', '288984', '1528233', '1549381', '181689', '821780', '269902', '1563627', '657183', '621624', '183727', '182489', '249224', '638277', '1561652', '1524280', '1506773', '1500343', '182733', '257103', '1494277', '182938', '237209', '861510', '769899', '247370', '1039658', '668025', '288968', '782663', '254883', '604515', '181834', '181633', '691206', '241935', '372668', '183981', '184001', '255341', '327693', '1512133', '254166', '1443368', '607379', '182286', '931653', '182413', '248330', '270625', '181946', '256143', '567630', '181679', '423744', '183230', '255481', '254615', '843144', '254085', '658834', '269127', '1074527', '256648', '248263', '254002', '233869', '183827', '781318', '412433', '183097', '1494443', '769745', '1031503', '181966', '1560944', '182094', '611159', '616789', '340950', '183222', '182517', '1509909', '1560491', '244202', '181898', '306519', '1532075', '253538', '183332', '183273', '396439', '183543', '254037', '670650', '244210', '1067388', '594521', '181583', '1500106', '344778', '1516292', '611978', '1167145', '1506944', '172425', '248361', '254213', '183390', '249170', '253101', '244691', '183532', '183276', '1543066', '182882', '257562', '183551', '377672', '617767', '249307', '183565', '183493', '182619', '594201', '182652', '293946', '172249', '182829', '614604', '1012198', '787475', '1531301', '254288', '238151', '1068566', '181731', '1550789', '600608', '424620', '182595', '613944', '244605', '256586', '183213', '251592', '1539675', '181574', '1062917', '280765', '279282', '252672', '177826', '255757', '1557801', '950405', '172202', '1550949', '949703', '182594', '243218', '183708', '285568', '252004', '585730', '1525315', '1515073', '248452', '183694', '172434', '253281', '183109', '586411', '237352', '242812', '183483', '558425', '183098', '251159', '433838', '867987', '183033', '1011589', '446860', '1495895', '417757', '1022183', '1562508', '630752', '256802', '1562179', '182309', '989533', '314302', '254316', '182854', '172225', '607416', '809362', '590582', '1519463', '256711', '1040743', '183897', '182633', '233201', '181865', '1508845', '182407', '408701', '182753', '172318', '182689', '1518896', '611146', '256075', '954106', '879428', '244785', '952921', '780814', '868646', '256345', '1079272', '1534245', '183413', '419959', '784868', '781143', '183401', '183581', '182819', '571996', '254687', '239975', '1081316', '328578', '255076', '942654', '1537357', '183931', '769180', '1540314', '858522', '172424', '255767', '1557151', '1561949', '774036', '778561', '182784', '559527', '182356', '256959', '182940', '183979', '1059472', '809061', '183834', '183383', '234882', '293056', '812117', '1077570', '183811', '182237', '247483', '172241', '576249', '691210', '815000', '254080', '1535191', '250251', '1005060', '808773', '181925', '1523232', '858244', '1066480', '338183', '1523559', '182788', '252718', '254795', '365907', '182881', '445926', '279469', '250962', '1509738', '390461', '183992', '812033', '248400', '1457277', '181732', '182180', '334678', '172231', '637815', '435369', '183342', '809927', '172492', '436204', '948067', '172376', '181606', '390486', '254273', '1494148', '251875', '1072823', '242354', '270113', '653026', '181795', '234914', '255081', '1527086', '172227', '251769', '254657', '182273', '1550872', '182172', '182861', '265174', '1540734', '1541191', '256568', '238094', '236110', '414318', '1443515', '1545894', '662315', '950311', '377910', '253676', '775682', '1516928', '399304', '183964', '570047', '244643', '266289', '183954', '181985', '1512983', '256773', '848133', '397746', '183847', '253942', '183898', '254568', '836783', '183939', '1457260', '183945', '862460', '254091', '447485', '182796', '1529829', '848369', '1519043', '183566', '182392', '377920', '838429', '236367', '1160174', '1173851', '446251', '172158', '846054', '1472503', '255405', '386724', '951297', '933170', '249188', '607409', '1031233', '181665', '364017', '1198525', '182531', '1496212', '182404', '251827', '255235', '248358', '1080914', '252958', '781316', '413707', '649904', '597738', '183044', '255881', '1039343', '182791'}\n"
+     ]
+    }
+   ],
+   "source": [
+    "product_id_set=set()\n",
+    "rcm=re.compile(\"productId:.*?\\,\")\n",
+    "for item in re.finditer(rcm,lvmama_text):\n",
+    "    product_id = item.group().strip(',').split(':')[-1]\n",
+    "    product_id_set.add(product_id)\n",
+    "print(product_id_set)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 59,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "from path import Path\n",
+    "Path('/root/dpp/').cd()\n",
+    "from lvmama_worker import good_price_fetch"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 60,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "ename": "KeyboardInterrupt",
+     "evalue": "",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mAttributeError\u001b[0m                            Traceback (most recent call last)",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/utils/functional.py\u001b[0m in \u001b[0;36m__call__\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m     35\u001b[0m         \u001b[0;32mtry\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 36\u001b[0;31m             \u001b[0;32mreturn\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__value__\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     37\u001b[0m         \u001b[0;32mexcept\u001b[0m \u001b[0mAttributeError\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mAttributeError\u001b[0m: 'ChannelPromise' object has no attribute '__value__'",
+      "\nDuring handling of the above exception, another exception occurred:\n",
+      "\u001b[0;31mConnectionRefusedError\u001b[0m                    Traceback (most recent call last)",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/utils/functional.py\u001b[0m in \u001b[0;36mretry_over_time\u001b[0;34m(fun, catch, args, kwargs, errback, max_retries, interval_start, interval_step, interval_max, callback)\u001b[0m\n\u001b[1;32m    332\u001b[0m         \u001b[0;32mtry\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 333\u001b[0;31m             \u001b[0;32mreturn\u001b[0m \u001b[0mfun\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m*\u001b[0m\u001b[0margs\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m**\u001b[0m\u001b[0mkwargs\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    334\u001b[0m         \u001b[0;32mexcept\u001b[0m \u001b[0mcatch\u001b[0m \u001b[0;32mas\u001b[0m \u001b[0mexc\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/connection.py\u001b[0m in \u001b[0;36mconnect\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    260\u001b[0m         \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_closed\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;32mFalse\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 261\u001b[0;31m         \u001b[0;32mreturn\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mconnection\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    262\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/connection.py\u001b[0m in \u001b[0;36mconnection\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    801\u001b[0m                 \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_default_channel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 802\u001b[0;31m                 \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_connection\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_establish_connection\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    803\u001b[0m                 \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_closed\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;32mFalse\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/connection.py\u001b[0m in \u001b[0;36m_establish_connection\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    756\u001b[0m         \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_debug\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'establishing connection...'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 757\u001b[0;31m         \u001b[0mconn\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mtransport\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mestablish_connection\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    758\u001b[0m         \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_debug\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'connection established: %r'\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/transport/pyamqp.py\u001b[0m in \u001b[0;36mestablish_connection\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    129\u001b[0m         \u001b[0mconn\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mclient\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mclient\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 130\u001b[0;31m         \u001b[0mconn\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mconnect\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    131\u001b[0m         \u001b[0;32mreturn\u001b[0m \u001b[0mconn\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/amqp/connection.py\u001b[0m in \u001b[0;36mconnect\u001b[0;34m(self, callback)\u001b[0m\n\u001b[1;32m    295\u001b[0m     \u001b[0;32mdef\u001b[0m \u001b[0mtransport\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 296\u001b[0;31m         \u001b[0;32mif\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_transport\u001b[0m \u001b[0;32mis\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    297\u001b[0m             \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_warn_force_connect\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'transport'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/amqp/transport.py\u001b[0m in \u001b[0;36mconnect\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    122\u001b[0m                 \u001b[0msock\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0msettimeout\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mtimeout\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 123\u001b[0;31m             \u001b[0;32mtry\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    124\u001b[0m                 \u001b[0;32myield\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0msock\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/amqp/transport.py\u001b[0m in \u001b[0;36m_connect\u001b[0;34m(self, host, port, timeout)\u001b[0m\n\u001b[1;32m    163\u001b[0m             \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_set_socket_options\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0msocket_settings\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 164\u001b[0;31m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    165\u001b[0m             \u001b[0;31m# set socket timeouts\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mConnectionRefusedError\u001b[0m: [Errno 111] Connection refused",
+      "\nDuring handling of the above exception, another exception occurred:\n",
+      "\u001b[0;31mKeyboardInterrupt\u001b[0m                         Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-60-0b766a582396>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m()\u001b[0m\n\u001b[1;32m      1\u001b[0m \u001b[0;32mfor\u001b[0m \u001b[0mproduct_id\u001b[0m \u001b[0;32min\u001b[0m \u001b[0mproduct_id_set\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 2\u001b[0;31m     \u001b[0mgood_price_fetch\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mapply_async\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0margs\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mproduct_id\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mqueue\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;34m'dpp_lvmama_tasks'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      3\u001b[0m     \u001b[0;32mbreak\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/celery/app/task.py\u001b[0m in \u001b[0;36mapply_async\u001b[0;34m(self, args, kwargs, task_id, producer, link, link_error, shadow, **options)\u001b[0m\n\u001b[1;32m    533\u001b[0m             \u001b[0mlink\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mlink\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mlink_error\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mlink_error\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mresult_cls\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mAsyncResult\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    534\u001b[0m             \u001b[0mshadow\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mshadow\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mtask_type\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 535\u001b[0;31m             \u001b[0;34m**\u001b[0m\u001b[0moptions\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    536\u001b[0m         )\n\u001b[1;32m    537\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/celery/app/base.py\u001b[0m in \u001b[0;36msend_task\u001b[0;34m(self, name, args, kwargs, countdown, eta, task_id, producer, connection, router, result_cls, expires, publisher, link, link_error, add_to_parent, group_id, retries, chord, reply_to, time_limit, soft_time_limit, root_id, parent_id, route_name, shadow, chain, task_type, **options)\u001b[0m\n\u001b[1;32m    735\u001b[0m             \u001b[0;32mwith\u001b[0m \u001b[0mP\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mconnection\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_reraise_as_library_errors\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    736\u001b[0m                 \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mbackend\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mon_task_call\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mP\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mtask_id\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 737\u001b[0;31m                 \u001b[0mamqp\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0msend_task_message\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mP\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mname\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmessage\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m**\u001b[0m\u001b[0moptions\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    738\u001b[0m         \u001b[0mresult\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;34m(\u001b[0m\u001b[0mresult_cls\u001b[0m \u001b[0;32mor\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mAsyncResult\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mtask_id\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    739\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0madd_to_parent\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/celery/app/amqp.py\u001b[0m in \u001b[0;36msend_task_message\u001b[0;34m(producer, name, message, exchange, routing_key, queue, event_dispatcher, retry, retry_policy, serializer, delivery_mode, compression, declare, headers, exchange_type, **kwargs)\u001b[0m\n\u001b[1;32m    556\u001b[0m                 \u001b[0mdelivery_mode\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mdelivery_mode\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mdeclare\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mdeclare\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    557\u001b[0m                 \u001b[0mheaders\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mheaders2\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 558\u001b[0;31m                 \u001b[0;34m**\u001b[0m\u001b[0mproperties\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    559\u001b[0m             )\n\u001b[1;32m    560\u001b[0m             \u001b[0;32mif\u001b[0m \u001b[0mafter_receivers\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/messaging.py\u001b[0m in \u001b[0;36mpublish\u001b[0;34m(self, body, routing_key, delivery_mode, mandatory, immediate, priority, content_type, content_encoding, serializer, headers, compression, exchange, retry, retry_policy, declare, expiration, **properties)\u001b[0m\n\u001b[1;32m    179\u001b[0m             \u001b[0mbody\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mpriority\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcontent_type\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcontent_encoding\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    180\u001b[0m             \u001b[0mheaders\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mproperties\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mrouting_key\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmandatory\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mimmediate\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 181\u001b[0;31m             \u001b[0mexchange_name\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mdeclare\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    182\u001b[0m         )\n\u001b[1;32m    183\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/connection.py\u001b[0m in \u001b[0;36m_ensured\u001b[0;34m(*args, **kwargs)\u001b[0m\n\u001b[1;32m    492\u001b[0m                 \u001b[0;32mfor\u001b[0m \u001b[0mretries\u001b[0m \u001b[0;32min\u001b[0m \u001b[0mcount\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;36m0\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m  \u001b[0;31m# for infinity\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    493\u001b[0m                     \u001b[0;32mtry\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 494\u001b[0;31m                         \u001b[0;32mreturn\u001b[0m \u001b[0mfun\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m*\u001b[0m\u001b[0margs\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m**\u001b[0m\u001b[0mkwargs\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    495\u001b[0m                     \u001b[0;32mexcept\u001b[0m \u001b[0mconn_errors\u001b[0m \u001b[0;32mas\u001b[0m \u001b[0mexc\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    496\u001b[0m                         \u001b[0;32mif\u001b[0m \u001b[0mgot_connection\u001b[0m \u001b[0;32mand\u001b[0m \u001b[0;32mnot\u001b[0m \u001b[0mhas_modern_errors\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/messaging.py\u001b[0m in \u001b[0;36m_publish\u001b[0;34m(self, body, priority, content_type, content_encoding, headers, properties, routing_key, mandatory, immediate, exchange, declare)\u001b[0m\n\u001b[1;32m    185\u001b[0m                  \u001b[0mheaders\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mproperties\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mrouting_key\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmandatory\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    186\u001b[0m                  immediate, exchange, declare):\n\u001b[0;32m--> 187\u001b[0;31m         \u001b[0mchannel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mchannel\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    188\u001b[0m         message = channel.prepare_message(\n\u001b[1;32m    189\u001b[0m             \u001b[0mbody\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mpriority\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcontent_type\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/messaging.py\u001b[0m in \u001b[0;36m_get_channel\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    207\u001b[0m         \u001b[0mchannel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_channel\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    208\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0misinstance\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mchannel\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mChannelPromise\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 209\u001b[0;31m             \u001b[0mchannel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_channel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mchannel\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    210\u001b[0m             \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mexchange\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mrevive\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mchannel\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    211\u001b[0m             \u001b[0;32mif\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mon_return\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/utils/functional.py\u001b[0m in \u001b[0;36m__call__\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m     36\u001b[0m             \u001b[0;32mreturn\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__value__\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     37\u001b[0m         \u001b[0;32mexcept\u001b[0m \u001b[0mAttributeError\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 38\u001b[0;31m             \u001b[0mvalue\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__value__\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__contract__\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     39\u001b[0m             \u001b[0;32mreturn\u001b[0m \u001b[0mvalue\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     40\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/messaging.py\u001b[0m in \u001b[0;36m<lambda>\u001b[0;34m()\u001b[0m\n\u001b[1;32m    222\u001b[0m             \u001b[0mconnection\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mchannel\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    223\u001b[0m             \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__connection__\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mconnection\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 224\u001b[0;31m             \u001b[0mchannel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mChannelPromise\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;32mlambda\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mconnection\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mdefault_channel\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    225\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0misinstance\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mchannel\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mChannelPromise\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    226\u001b[0m             \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_channel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mchannel\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/connection.py\u001b[0m in \u001b[0;36mdefault_channel\u001b[0;34m(self)\u001b[0m\n\u001b[1;32m    817\u001b[0m         \"\"\"\n\u001b[1;32m    818\u001b[0m         \u001b[0;31m# make sure we're still connected, and if not refresh.\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 819\u001b[0;31m         \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mconnection\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    820\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_default_channel\u001b[0m \u001b[0;32mis\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    821\u001b[0m             \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_default_channel\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mchannel\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/connection.py\u001b[0m in \u001b[0;36mensure_connection\u001b[0;34m(self, errback, max_retries, interval_start, interval_step, interval_max, callback, reraise_as_library_errors)\u001b[0m\n\u001b[1;32m    403\u001b[0m                             \u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m{\u001b[0m\u001b[0;34m}\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mon_error\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmax_retries\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    404\u001b[0m                             \u001b[0minterval_start\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0minterval_step\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0minterval_max\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 405\u001b[0;31m                             callback)\n\u001b[0m\u001b[1;32m    406\u001b[0m         \u001b[0;32mreturn\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    407\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m/usr/local/python3/lib/python3.6/site-packages/kombu/utils/functional.py\u001b[0m in \u001b[0;36mretry_over_time\u001b[0;34m(fun, catch, args, kwargs, errback, max_retries, interval_start, interval_step, interval_max, callback)\u001b[0m\n\u001b[1;32m    343\u001b[0m                     \u001b[0;32mif\u001b[0m \u001b[0mcallback\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    344\u001b[0m                         \u001b[0mcallback\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 345\u001b[0;31m                     \u001b[0msleep\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;36m1.0\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    346\u001b[0m                 \u001b[0;31m# sleep remainder after int truncation above.\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    347\u001b[0m                 \u001b[0msleep\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mabs\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mint\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mtts\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m-\u001b[0m \u001b[0mtts\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mKeyboardInterrupt\u001b[0m: "
+     ]
+    }
+   ],
+   "source": [
+    "for product_id in product_id_set:\n",
+    "    good_price_fetch.apply_async(args=[product_id], queue='dpp_lvmama_tasks')\n",
+    "    break"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 42,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "\"[2017-12-26 09:35:15,339: INFO/ForkPoolWorker-37] Task lvmama_worker.good_price_fetch[f785bb93-e582-4f0f-a1ee-0e832ed850fb] succeeded in 0.21321648359298706s: 'productId:182894,pdInfo:False'\\n[2017-12-26 09:35:15,340: INFO/MainProcess] Received task: lvmama_worker.good_price_fetch[6e12cb9b-633d-4970-accb-77c81652b65b]  \\n[2017-12-26 09:35:15,365: INFO/ForkPoolWorker-26] Task lvmama_worker.good_price_fetch[724461fa-2f3d-406e-bdf0-bac47ebab0a2] succeeded in 0.219253933057189s: 'productId:930512,pdInfo:False'\\n[2017-12-26 09:35:15,365: INFO/ForkPoolWorker-24] Task lvmama_worker.good_price_fetch[59881343-859a-4893-9f12-8ea13184efbe] succeeded in 0.2191107403486967s: 'productId:172367,pdInfo:False'\\n[2017-12-26 09:35:15,389: INFO/ForkPoolWorker-23] Task lvmama_worker.good_price_fetch[cfe8c3bd-2568-4c4a-820d-fdfc5a5807eb] succeeded in 0.23662403225898743s: 'productId:1523489,pdInfo:False'\\n[2017-12-26 09:35:15,394: INFO/ForkPoolWorker-31] Task lvmama_worker.good_price_fetch[7a576013-c1e8-4ac7-b36\""
+      ]
+     },
+     "execution_count": 42,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "lvmama_text[:1000]"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

@@ -1,0 +1,233 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "import jipiao_pic"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "pic_names=jipiao_pic.pic_names"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "for name in pic_names:\n",
+    "    income_url=\"http://app.static.boluomeet.com/icon/jipiao/airline/{}.png\".format(name)\n",
+    "    os.system(\"wget {} -O /data/jipiao/{}.png -q\".format(income_url, name))\n",
+    "    os.system(\"scp /data/jipiao/{}.png root@139.198.3.124:/data/www/img/icon/jipao/\".format(name))\n",
+    "#     os.system('ssh root@139.198.3.124 \"[ -d /data/jipiao/*.png ] && echo ok || mkdir -p /data/www/img/icon/jipao/\"')\n",
+    "#     break"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "deletable": true,
+    "editable": true
+   },
+   "source": [
+    "### 输入一个http的url返回一个https的url"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "def url_change(inc_url):\n",
+    "    if \"http\" not in inc_url:\n",
+    "        return 'no http'\n",
+    "    file_name=inc_url.split(\"/\")[-1]\n",
+    "    os.system(\"wget {} -O /data/category/dashibaoyang/diandian/{}\".format(inc_url,file_name))\n",
+    "    os.system(\"scp /data/category/dashibaoyang/diandian/{0} root@139.198.3.124:/data/www/img/icon/category/dashibaoyang/diandian/{0}\".format(file_name))\n",
+    "    out_url=\"https://f1.otosaas.com/img/icon/category/dashibaoyang/diandian/{}\".format(file_name)\n",
+    "    return out_url"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "deletable": true,
+    "editable": true
+   },
+   "source": [
+    "### brands_category.category=waimai"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "from connection import ConnectTask\n",
+    "c=ConnectTask()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "# data=c.dev.brands_category.find_one({\"category\":'dashibaoyang'})['channels']['diandian']\n",
+    "# for index,item in enumerate(data):\n",
+    "#     inc_url=item['banner']  #变量\n",
+    "#     if \"http\" not in inc_url:\n",
+    "#         continue\n",
+    "#     file_name=inc_url.split(\"/\")[-1]\n",
+    "#     print(inc_url,file_name)\n",
+    "#     os.system(\"wget {} -O /data/category/dashibaoyang/diandian/{}\".format(inc_url,file_name))\n",
+    "#     os.system(\"scp /data/category/dashibaoyang/diandian/{0} root@139.198.3.124:/data/www/img/icon/category/dashibaoyang/diandian/{0}\".format(file_name))\n",
+    "#     out_url=\"https://f1.otosaas.com/img/icon/category/dashibaoyang/diandian/{}\".format(file_name)\n",
+    "#     print(out_url)\n",
+    "#     data[index][\"banner\"]=out_url # 变量\n",
+    "# #     break\n",
+    "# c.dev.brands_category.update_one({\"category\":'dashibaoyang'},{\"$set\":{\"channels.diandian\":data}})\n",
+    "# # print(data)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "deletable": true,
+    "editable": true
+   },
+   "source": [
+    "## airportcip 图片转存"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "7 198 50\r"
+     ]
+    }
+   ],
+   "source": [
+    "import requests\n",
+    "import hashlib\n",
+    "from pprint import pprint\n",
+    "import os\n",
+    "# 1.1.1获取区域信息(根据区域类型)\n",
+    "url='http://api.airportcip.com:8089/report.svc/SearchAreaInfo?random=4345454&type={}&sign={}'\n",
+    "count=0\n",
+    "for type_num in ['3','4','6','7']:\n",
+    "    hmd=hashlib.md5('random=4345454&type={}AS-DF-KA-11-07-D1'.format(type_num).encode('utf-8'))\n",
+    "    resp_data=requests.get(url.format(type_num,hmd.hexdigest().upper())).json()\n",
+    "#     print(resp_data)\n",
+    "#     break\n",
+    "    try:\n",
+    "        for item in resp_data['data']:\n",
+    "            count+=1\n",
+    "            num=search_area_info_by_id(item['AirportId'],type_num)\n",
+    "            print(type_num,count,num,end='\\r')\n",
+    "    except:\n",
+    "        print(resp_data)\n",
+    "#         break\n",
+    "#     break"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "def search_area_info_by_id(airport_id,type_num):\n",
+    "    count=0\n",
+    "    url='http://api.airportcip.com:8089/report.svc/SearchAreaInfoById?random=556567&type={}&airport_id={}&sign={}'\n",
+    "    hmd=hashlib.md5('random=556567&type={}&airport_id={}AS-DF-KA-11-07-D1'.format(type_num,airport_id).encode('utf-8'))\n",
+    "    resp_data=requests.get(url.format(type_num,airport_id,hmd.hexdigest().upper())).json()\n",
+    "    for item in resp_data['data']:\n",
+    "        for key in ['Image','Image2','Image3','Image4','Image5']:\n",
+    "            count+=1\n",
+    "            if not item.get(key):\n",
+    "                continue\n",
+    "            p1,p2,image=item[key].split('/')\n",
+    "            mkdir = \"/data/airportcip/{}/{}\".format(p1,p2)\n",
+    "            os.system(\"mkdir -p {}\".format(mkdir))\n",
+    "            image_url = \"{}/{}\".format(mkdir, image)\n",
+    "            os.system(\"wget {} -O {} -q\".format('http://api.airportcip.com:8180/upload/'+item[key], image_url))\n",
+    "#             print(image_url)\n",
+    "    return count\n",
+    "# search_area_info_by_id('32','3')"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

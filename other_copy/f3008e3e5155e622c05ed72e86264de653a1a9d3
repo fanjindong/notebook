@@ -1,0 +1,49 @@
+# coding:utf-8
+from __future__ import absolute_import, unicode_literals
+
+#MONGO_HOST = ["mongodb://root:Boluome123@192.168.0.10", "192.168.0.7"]
+MONGO_HOST = ["mongodb://root:Boluome123@192.168.0.7", "192.168.0.10"]
+#MONGO_HOST=["mongodb://root:Boluome123@192.168.2.3", "192.168.2.4"]
+REPLICASET_NAME = 'foba'
+
+PRO_MONGO_HOST = ["mongodb://root:Boluome123@192.168.1.6", "192.168.1.7"]
+STG_MONGO_HOST = ["mongodb://root:Boluome123@192.168.2.3", "192.168.2.4"]
+DEV_MONGO_HOST = ["mongodb://root:Boluome123@192.168.0.7", "192.168.0.10"]
+
+REDIS_HOST = '192.168.0.6'
+REDIS_PORT = 6379
+REDIS_DB = 1
+
+REDIS_ACTIVITY_HOST = '192.168.0.6'
+REDIS_PAYMENT_HOST = '192.168.0.6'
+#REDIS_PAYMENT_HOST = '192.168.2.5'
+REDIS_ACTIVITY_PORT = 6379
+REDIS_ACTIVITY_DB = 0
+REDIS_ACTIVITY_DB_1 = 1
+REDIS_ACTIVITY_DB_2 = 2
+REDIS_ACTIVITY_SCRATCH_DB = 3
+
+PG_DSN =     "host=192.168.0.8 dbname=oto_saas user=boluome password=Boluome123"
+PG_BOLUOME = "host=192.168.0.8 dbname=boluome user=boluome password=Boluome123"
+PG_ACCOUNT = "host=192.168.0.8 dbname=account user=root password=Boluome123"
+
+MQ_BROKER = "amqp://blm:blm123@192.168.0.6//"
+
+MQ_REPORT = "dev_report_tasks"
+MQ_PRE_REPORT = "dev_pre_report_tasks"
+MQ_SHARE_IMG = "dev_share_img_tasks"
+MQ_TRANSACTION = "dev_transaction_amount_tasks"
+
+REPORT_PATH = '/tmp'
+
+SUBMAIL_APPID = '11664'
+SUBMAIL_APPKEY = '26a5a8c9fe31f28a60fa1f2558f9d8fd'
+SUBMAIL_MAIL_URL = 'https://api.submail.cn/mail/xsend'
+SUBMAIL_PROJECT = 'peKSO3'
+
+SCRATCH_KEY = 'scratch:57a3f1c76ca08823007a3c06'
+SCRATCH_ORDER_KEY = 'scratch_order'
+
+INVITE_COUPON_URL = 'http://192.168.0.2:32800/api/v1/marketing/invite_coupon'
+
+COUPON_URL = 'http://dev.web.boluomeet.com/coupon'

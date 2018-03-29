@@ -1,0 +1,183 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from connection import ConnectionTask\n",
+    "import time\n",
+    "from pprint import pprint\n",
+    "c=ConnectionTask()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "huafei\n",
+      "huoche\n",
+      "jiayouka\n",
+      "liuliang\n",
+      "mms_daojiaxianhua\n",
+      "{'2017-12-29': 4,\n",
+      " '2017-12-30': 2,\n",
+      " '2017-12-31': 5,\n",
+      " '2018-01-02': 2,\n",
+      " '2018-01-07': 1,\n",
+      " '2018-01-09': 1,\n",
+      " '2018-01-11': 1,\n",
+      " '2018-01-13': 1,\n",
+      " '2018-01-18': 1,\n",
+      " '2018-01-24': 1,\n",
+      " '2018-01-26': 1}\n"
+     ]
+    }
+   ],
+   "source": [
+    "# 订单已完成后，红包活动、平台活动未能扣减、统计补偿\n",
+    "order_counter={}\n",
+    "for order_type in c.pmdb.order_lite_list.distinct(\"orderType\",{\"appCode\":\"bsb\",\"status\":4}):\n",
+    "    print(order_type)\n",
+    "    for item in c.pmdb[f'order_{order_type}'].find({\"appCode\":\"bsb\",\"status\":4,\"coupon.title\":\"生活礼券\"}):\n",
+    "        date=time.strftime(\"%Y-%m-%d\",time.localtime(item['completedAt']/1000))\n",
+    "        order_counter.setdefault(date,0)\n",
+    "        order_counter[date]+=1\n",
+    "pprint(order_counter)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "huafei\n",
+      "0\n",
+      "huoche\n",
+      "0\n",
+      "jiayouka\n",
+      "913\n",
+      "liuliang\n",
+      "913\n",
+      "mms_daojiaxianhua\n",
+      "913\n",
+      "{'2018-02-14': 841, '2018-02-15': 72}\n"
+     ]
+    }
+   ],
+   "source": [
+    "order_counter={}\n",
+    "for order_type in c.pmdb.order_lite_list.distinct(\"orderType\",{\"appCode\":\"bsb\",\"status\":4}):\n",
+    "    print(order_type)\n",
+    "    for item in c.pmdb[f'order_{order_type}'].find({\"appCode\":\"bsb\",\"status\":4,\"activityId\":'1215'}):\n",
+    "        date=time.strftime(\"%Y-%m-%d\",time.localtime(item['completedAt']/1000))\n",
+    "        order_counter.setdefault(date,0)\n",
+    "        order_counter[date]+=1\n",
+    "#         if date==\"2018-02-15\":\n",
+    "#             print(item['id'])\n",
+    "    print(sum(order_counter.values()))\n",
+    "pprint(order_counter)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "platform 2018-02-14 841 16820\n",
+      "platform 2018-02-15 913 18260\n",
+      "platform 2018-02-16 913 18260\n",
+      "platform 2018-02-17 913 18260\n",
+      "platform 2018-02-18 913 18260\n",
+      "platform 2018-02-19 913 18260\n"
+     ]
+    }
+   ],
+   "source": [
+    "activity_compensation('1215',20,order_counter)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "def activity_compensation(activity_id,price,activity_counter):\n",
+    "    \"\"\"重写某个活动activity表的统计数据used,unused,usedToday,allowance,allowanceToday,remainingFunds\n",
+    "    Args:\n",
+    "        activity_id(str):活动Id\n",
+    "        price(int):活动单价\n",
+    "        activity_counter(dict): key(date):value(usedToday)\n",
+    "                               {'2017-12-29': 4,'2017-12-30': 2, '2017-12-31': 5, '2018-01-02': 2, '2018-01-07': 1}\n",
+    "    \"\"\"\n",
+    "    for target in c.pmdb.activity.distinct(\"target\",{\"activityId\":activity_id}):\n",
+    "        used=0\n",
+    "        for item in c.pmdb.activity.find({\"activityId\":activity_id,\"target\":target}):\n",
+    "            used_today=activity_counter.get(item['date'],0)\n",
+    "            used+=used_today\n",
+    "            allowance=price*used\n",
+    "            allowance_today=price*used_today\n",
+    "            unused=(item.get('distributed') or item.get('total'))-used\n",
+    "            update_data={\n",
+    "                \"used\":used,\n",
+    "                \"usedToday\":used_today,\n",
+    "                \"allowance\":allowance,\n",
+    "                \"allowanceToday\":allowance_today\n",
+    "            }\n",
+    "            if \"unused\" in item:\n",
+    "                update_data[\"unused\"]=unused\n",
+    "            if \"remaining\" in item:\n",
+    "                update_data[\"remaining\"]=unused\n",
+    "            if \"usedPeopleNum\" in item:\n",
+    "                update_data[\"usedPeopleNum\"]=c.prdb_activity(0).zcard('a:{}:used'.format(activity_id))\n",
+    "            if \"usedPeopleNumToday\" in item:\n",
+    "                update_data[\"usedPeopleNumToday\"]=0\n",
+    "            if \"totalFunds\" in item:\n",
+    "                remaining_funds = item['totalFunds']-allowance\n",
+    "                update_data[\"remainingFunds\"]=remaining_funds\n",
+    "#             print(target,item['date'],update_data)\n",
+    "#             continue\n",
+    "            c.pmdb.activity.update_one({\"activityId\":activity_id,\"target\":target,\"date\":item['date']},{\"$set\":update_data})\n",
+    "            print(target,item['date'],used,allowance)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

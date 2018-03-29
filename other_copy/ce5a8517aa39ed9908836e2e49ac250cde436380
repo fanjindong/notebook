@@ -1,0 +1,364 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 261,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "import paramiko\n",
+    "ssh = paramiko.SSHClient()\n",
+    "ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 346,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "ssh.connect(\"139.198.3.124\", username=\"root\", timeout=2,banner_timeout=2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 369,
+   "metadata": {
+    "collapsed": false,
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "sftp=paramiko.SFTPClient.from_transport(ssh.get_transport())"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 373,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "sftp=ssh.open_sftp()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 396,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "sftp=ssh.open_sftp()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 324,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<paramiko.Transport at 0xa2ab8780 (unconnected)>"
+      ]
+     },
+     "execution_count": 324,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "ssh.get_transport()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 417,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "True"
+      ]
+     },
+     "execution_count": 417,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "a=ssh.get_transport()\n",
+    "a.is_alive()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 342,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "a.close()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 429,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "sftp.close()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 436,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<bound method Transport.connect of <paramiko.Transport at 0xa2aa96a0 (cipher aes128-ctr, 128 bits) (active; 4 open channel(s))>>"
+      ]
+     },
+     "execution_count": 436,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "a.connect"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 401,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<paramiko.sftp_client.SFTPClient at 0x7f99a2aaf780>"
+      ]
+     },
+     "execution_count": 401,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "paramiko.SFTPClient.from_transport(a)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "transport = ssh.get_transport()\n",
+    "transport.send_ignore()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 112,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<paramiko.Channel 6 (closed) -> <paramiko.Transport at 0xc43d5f98 (unconnected)>>\n"
+     ]
+    }
+   ],
+   "source": [
+    "sftp.close()\n",
+    "print(sftp.get_channel())"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 64,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "True"
+      ]
+     },
+     "execution_count": 64,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "sftp.getcwd()==None"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "/data/test/aa/bb/cc/dd/ee ff\n",
+      "/data/test/aa/bb/cc/dd ee\n",
+      "/data/test/aa/bb/cc dd\n",
+      "/data/test/aa/bb cc\n",
+      "/data/test/aa bb\n",
+      "/data/test aa\n",
+      "/data test\n"
+     ]
+    }
+   ],
+   "source": [
+    "sftp = ssh.open_sftp()\n",
+    "server_mkdir_p(sftp,'/data/test/aa/bb/cc/dd/ee/ff/')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "def server_mkdir_p(sftp, remote_directory):\n",
+    "    \"\"\"Change to this directory, recursively making new folders if needed.\n",
+    "    Returns True if any folders were created.\"\"\"\n",
+    "    try:\n",
+    "        sftp.chdir(remote_directory)  # sub-directory exists\n",
+    "    except IOError:\n",
+    "        dirname, basename = remote_directory.rstrip('/').rsplit('/', 1)\n",
+    "        print(dirname,basename)\n",
+    "        server_mkdir_p(sftp, dirname)  # make parent directories\n",
+    "        sftp.mkdir(remote_directory)  # sub-directory missing, so created it"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "file='/data/www/img/order/status/icon/7.png'"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "/data/www/img/order/status/icon 7.png\n"
+     ]
+    }
+   ],
+   "source": [
+    "file_dir,file_name=file.rsplit('/',1)\n",
+    "print(file_dir,file_name)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

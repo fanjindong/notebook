@@ -1,0 +1,316 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "# 神州专车：\n",
+    "# 实时计价：\n",
+    "# pro：clientId: '15BF033E0000310A',\n",
+    "# clientSecret: 'g4uq7svk0h2cewn7fhwm'\n",
+    "# dev：\n",
+    "# clientId: 'F58B113F0000170A',\n",
+    "# clientSecret: '08khsi6fr3338eag30s5'\n",
+    "# redis: 0 库,key：shenzhoujieji_access_token_change\n",
+    "\n",
+    "# 一口价： pro:\n",
+    "# clientId: '15BF033E0000320A',\n",
+    "# clientSecret: 'hyvi8t12swdia35m9tk0',\n",
+    "# dev：\n",
+    "# clientId: '15BF033E0000170A',\n",
+    "# clientSecret: '9fnjpcf1045j1w6w6ubt',\n",
+    "# redis：0 库,key:shenzhoujieji_access_token_one\n",
+    "\n",
+    "# 公共的：\n",
+    "# pro：\n",
+    "# oauthUrl: 'https://oauth.10101111.com',\n",
+    "# url: 'https://openapi.10101111.com',\n",
+    "# grantType: 'password',\n",
+    "# companyId: '32305',\n",
+    "# userName: '13162081070',\n",
+    "# passWord: 'Blm.123'\n",
+    "\n",
+    "# dev:\n",
+    "# oauthUrl: 'https://sandboxoauth.10101111.com',\n",
+    "# url: 'https://sandboxapi.10101111.com',\n",
+    "# grantType: 'password',\n",
+    "# companyId: '2421',\n",
+    "# userName: '18610000000',\n",
+    "# passWord: '18610000000'"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "#订单详情\n",
+    "# /v1/resource/order/getOrderDetail\n",
+    "# HTTP/GET\n",
+    "# 参数名称\t类型\t可选\t说明\n",
+    "# access_token\tstring\t否\t授权后的access token\n",
+    "# orderId\tstring\t否\t订单id\n",
+    "\n",
+    "# 返回结果根据订单状态变化而不同：\n",
+    "\n",
+    "# 当订单状态为已派单后才会有司机信息，且司机的经纬度根据实际位置实时变化\n",
+    "# 当订单状态为已提交费用之前费用信息显示为预估费用，已提交费用后显示为真实的费用信息\n",
+    "# 当订单状态为已提交费用后，如果用户对订单费用有疑议并进行投诉，订单费用仍然有可能变化\n",
+    "# 当订单状态为已提交费用后，才会显示代金券信息。因为此时费用已经确定，可以判断代金券是否适用本笔订单\n",
+    "# 当订单状态为已完成时，所有的数据将不再发生变化"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {
+    "collapsed": true,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [],
+   "source": [
+    "import requests\n",
+    "from pprint import pprint\n",
+    "from connection import ConnectionTask\n",
+    "c=ConnectionTask()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 73,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true,
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "{'busiCode': 'BASE000',\n",
+      " 'code': 1,\n",
+      " 'content': {'driver': {'driverLat': 0,\n",
+      "                        'driverLng': 0,\n",
+      "                        'driverName': '白师傅',\n",
+      "                        'driverPhone': '17091312927',\n",
+      "                        'driverScore': '5.0',\n",
+      "                        'vehicleModel': '大通G10',\n",
+      "                        'vehicleNo': '沪**Q060',\n",
+      "                        'virtualPhone4Passenger': '17091266019',\n",
+      "                        'virtualPhone4Purchaser': '17091312927'},\n",
+      "             'order': {'autoPayTime': 0,\n",
+      "                       'canDisagree': False,\n",
+      "                       'carGroupId': 2,\n",
+      "                       'cityId': 6,\n",
+      "                       'companyId': 32305,\n",
+      "                       'createTime': 1507533197,\n",
+      "                       'customData': '',\n",
+      "                       'departureTime': 1507533197,\n",
+      "                       'dispatchedTime': 1507533211,\n",
+      "                       'dispatchingCountdown': 0,\n",
+      "                       'elat': 31.243255463767888,\n",
+      "                       'elng': 121.48061426878641,\n",
+      "                       'employeeNumber': '',\n",
+      "                       'endAddress': '山西北路',\n",
+      "                       'endName': '宝格丽全球第四家酒店',\n",
+      "                       'finishedTime': 0,\n",
+      "                       'id': '6474805778871353356',\n",
+      "                       'isDisagree': False,\n",
+      "                       'isDispatchedImmediately': False,\n",
+      "                       'isFixedPrice': False,\n",
+      "                       'number': '30705124111654',\n",
+      "                       'orderRemark': '',\n",
+      "                       'orderScore': 0,\n",
+      "                       'passengerMobile': '18254584584',\n",
+      "                       'passengerName': '',\n",
+      "                       'passengerPhone': '18254584584',\n",
+      "                       'payStatus': '',\n",
+      "                       'paymentStatus': '',\n",
+      "                       'realElat': 31.243255463767888,\n",
+      "                       'realElng': 121.48061426878641,\n",
+      "                       'realEndAddress': '山西北路',\n",
+      "                       'realEndName': '宝格丽全球第四家酒店',\n",
+      "                       'realSlat': 31.243362705174192,\n",
+      "                       'realSlng': 121.4813318588131,\n",
+      "                       'realStartAddress': '天潼路与河南北路交叉口西南150米',\n",
+      "                       'realStartName': '时代嘉苑',\n",
+      "                       'rechargingCountdown': 0,\n",
+      "                       'serviceId': 14,\n",
+      "                       'slat': 31.243362705174192,\n",
+      "                       'slng': 121.4813318588131,\n",
+      "                       'startAddress': '天潼路与河南北路交叉口西南150米',\n",
+      "                       'startName': '时代嘉苑',\n",
+      "                       'status': 'canceled'},\n",
+      "             'price': {'arrearsPrice': '0',\n",
+      "                       'couponDeductibleAmount': 0,\n",
+      "                       'couponId': '',\n",
+      "                       'couponInvitationCode': '',\n",
+      "                       'detail': [],\n",
+      "                       'distance': 63,\n",
+      "                       'duration': 0,\n",
+      "                       'equivalentPrice': 0,\n",
+      "                       'totalPrice': '0'}},\n",
+      " 'handler': 'CLIENT',\n",
+      " 'msg': '成功',\n",
+      " 'status': 'SUCCESS',\n",
+      " 'uid': '1b65c8dd-5cbf-4d0c-9ce9-43285e090f04',\n",
+      " 'version': '001'}\n"
+     ]
+    }
+   ],
+   "source": [
+    "oauthUrl= 'https://oauth.10101111.com'\n",
+    "url= 'https://openapi.10101111.com'\n",
+    "access_token=c.prdb_mast(0).get('shenzhoujieji_access_token_change')\n",
+    "# access_token='2acc70aa-4ec5-4490-99e9-86c46a26509d'\n",
+    "payload={\n",
+    "    'access_token':access_token,\n",
+    "    'orderId':'6474805778871353356'\n",
+    "}\n",
+    "resp_data=requests.get(url+'/v1/resource/order/getOrderDetail',params=payload).json()\n",
+    "pprint(resp_data)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 69,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "{'access_token': '1b65c8dd-5cbf-4d0c-9ce9-43285e090f04', 'token_type': 'bearer', 'refresh_token': '574c63dd-0175-45c3-8773-fc054333390f', 'expires_in': 17972, 'scope': 'read'}\n"
+     ]
+    }
+   ],
+   "source": [
+    "# pro：\n",
+    "clientId= '15BF033E0000310A'\n",
+    "clientSecret= 'g4uq7svk0h2cewn7fhwm'\n",
+    "oauthUrl= 'https://oauth.10101111.com'\n",
+    "url= 'https://openapi.10101111.com'\n",
+    "grantType= 'password'\n",
+    "companyId= '32305'\n",
+    "userName= '13162081070'\n",
+    "passWord= 'Blm.123'\n",
+    "\n",
+    "payload={\n",
+    "    'client_id':clientId,\n",
+    "    'client_secret':clientSecret,\n",
+    "    'grant_type':'password',\n",
+    "    'username':userName,\n",
+    "    'password':passWord\n",
+    "}\n",
+    "resp_data=requests.post(oauthUrl+'/oauth/token',data=payload).json()\n",
+    "print(resp_data)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 70,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "True"
+      ]
+     },
+     "execution_count": 70,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "body={\n",
+    "    'access_token':resp_data['access_token'],\n",
+    "    'companyId':companyId\n",
+    "}\n",
+    "requests.post(url+'/v1/action/company/authenticate',data=body).json()\n",
+    "\n",
+    "c.prdb_mast(0).set('shenzhoujieji_access_token_change',resp_data['access_token'],ex=resp_data['expires_in'])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 53,
+   "metadata": {
+    "collapsed": false,
+    "deletable": true,
+    "editable": true
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "{'busiCode': 'BASE000',\n",
+       " 'code': 1,\n",
+       " 'content': {'revokedResult': 'SUCCESS'},\n",
+       " 'handler': 'CLIENT',\n",
+       " 'msg': '成功',\n",
+       " 'status': 'SUCCESS',\n",
+       " 'uid': '2acc70aa-4ec5-4490-99e9-86c46a26509d',\n",
+       " 'version': '001'}"
+      ]
+     },
+     "execution_count": 53,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "body={\n",
+    "    'access_token':resp_data['access_token'],\n",
+    "#     'companyId':companyId,\n",
+    "#     'loginId':userName,\n",
+    "#     'password':passWord\n",
+    "}\n",
+    "requests.post(url+'/v1/action/company/revokeAuthentication',data=body).json()"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
