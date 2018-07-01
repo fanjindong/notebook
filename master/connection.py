@@ -336,7 +336,6 @@ def pg_select(sql, conn):
     for item in data_all:
         yield {v[0]: item[k] for k, v in enumerate(keys)}
 
-
 def get_in(coll, path=None, default=None):
     """Returns a value at path in the given nested collection.
     Args:
