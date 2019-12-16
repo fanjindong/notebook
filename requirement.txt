@@ -156,7 +156,7 @@ state-machine==0.2.10
 style==1.1.0
 tablib==0.12.1
 tensorboard==1.7.0
-tensorflow==1.5.0
+tensorflow==1.15.0
 tensorflow-tensorboard==1.5.1
 termcolor==1.1.0
 terminado==0.8.1
