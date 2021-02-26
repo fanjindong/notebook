@@ -2,7 +2,7 @@ absl-py==0.1.13
 acme==0.20.0
 aiodns==1.1.1
 aiofiles==0.3.2
-aiohttp==2.3.7
+aiohttp==3.7.4
 aiopg==0.13.2
 aioredis==1.0.0
 amqp==2.2.2
