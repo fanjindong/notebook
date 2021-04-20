@@ -113,7 +113,7 @@ protobuf==3.5.2.post1
 psycopg2==2.7.3.2
 ptyprocess==0.5.2
 public==0.0.0
-py==1.5.2
+py==1.10.0
 pyasn1==0.4.2
 pycares==2.3.0
 pycparser==2.18
